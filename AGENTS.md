@@ -1,0 +1,48 @@
+# F1 Menu Bar development guide
+
+## Purpose and current stage
+
+Build a native macOS menu bar utility for the next F1 weekend, season calendar and winners, and championship standings. `PLAN.md` is the proposed product and implementation plan. The initial task is planning only; the plan does not itself authorize application implementation.
+
+## Planned organization
+
+- `App/`: composition root, menu bar scene, window routing, and app lifecycle.
+- `Features/`: NextWeekend, Calendar, Standings, and Settings SwiftUI views and presentation models.
+- `Domain/`: normalized models, event selection, and time/status rules.
+- `Data/`: Jolpica DTOs and mapping, HTTP transport, repository, and disk cache.
+- `Tests/`: domain and repository tests plus small JSON fixtures.
+- `Scripts/`: reproducible generation/build/test/run commands once implemented.
+- `project.yml`: XcodeGen source of truth once scaffolded.
+
+## Architecture and data rules
+
+- Use SwiftUI with `MenuBarExtra` and a regular detail window. Use AppKit only where platform lifecycle or window behavior needs it.
+- Construct services once at the app composition root; inject dependencies through initializers. Avoid global service locators and view-owned network requests.
+- Keep presentation state on `@MainActor`. Give networking, decoding, and cache I/O explicit ownership outside UI work.
+- Use one refresh coordinator to coalesce overlapping refreshes. Cancel obsolete tasks and reject results for superseded season/request identities.
+- Keep domain models independent of SwiftUI, formatted labels, icons, and colors. Inject time and timezone for selection and formatting tests.
+- Scope persistent data by provider, season, endpoint, and schema version. Serialize atomic cache writes and preserve the last good snapshot when refresh or decoding fails.
+- Distinguish an empty valid response from transport, decoding, or cache errors. Load each screen section independently.
+- Compare absolute timestamps; present them in the current system timezone by default. A missing time stays unknown.
+- Keep GP and sprint results separate. Only a published GP result establishes its winner. Elapsed time alone does not establish a completed race or a live session.
+- Preserve provider championship positions and points, including ties, deductions, and decimal points. Do not recreate the scoring rules locally.
+- Set an identifiable application/version `User-Agent`, honor `Retry-After`, bound retries and pagination, and cache responses.
+- Never embed secrets. The planned API calls require no credentials. Verify current provider documentation before changing API assumptions.
+
+## Build and verification
+
+There is no runnable app or test target yet. Do not report a successful app build, launch, or runtime test for this documentation baseline.
+
+The first implementation stage must add XcodeGen configuration and repository-owned generation, build, test, and run scripts, then replace this paragraph with commands that were actually executed. Record the full-Xcode path when command-line tools select a different developer directory. Add formatter/linter instructions only if those tools are configured.
+
+Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
+
+For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep fake data and test controls out of release composition.
+
+## Working conventions
+
+- Check Git status before editing; preserve unrelated changes and keep commits scoped.
+- Update the plan and README when agreed scope or verified commands change.
+- Prefer small, feature-oriented types and platform controls; avoid abstractions without a concrete need.
+- Use semantic styling, accessible text labels, keyboard navigation, and both system appearances.
+- Do not hardcode the current season, race count, team count, sprint venues, winners, or session order.
