@@ -45,12 +45,12 @@ public enum APIError: LocalizedError, Equatable, Sendable {
 
     public var errorDescription: String? {
         switch self {
-        case .invalidResponse: "OpenF1 returned an invalid response."
+        case .invalidResponse: "The data service returned an invalid response."
         case .responseTooLarge: "The response exceeded the app’s data limit."
-        case .subscriptionRequired: "OpenF1 requires access for this data right now. Published data will be retried later."
-        case .invalidData(let detail): "OpenF1 data could not be verified: \(detail)"
-        case .http(let code): "OpenF1 is unavailable (HTTP \(code)). Try again later."
-        case .rateLimited(let date): "OpenF1 asked us to wait until \(date.formatted(date: .omitted, time: .shortened))."
+        case .subscriptionRequired: "The data service temporarily requires authentication. Saved data will be kept and another source tried."
+        case .invalidData(let detail): "The downloaded data could not be read: \(detail)"
+        case .http(let code): "The data service is unavailable (HTTP \(code)). Try again later."
+        case .rateLimited(let date): "The data service asked us to wait until \(date.formatted(date: .omitted, time: .shortened))."
         }
     }
 }
@@ -68,19 +68,42 @@ actor RequestGate {
 }
 
 public actor OpenF1Client {
-    private let transport: any HTTPTransport
-    private let gate: RequestGate
-    private var blockedUntil: Date?
+    private let http: JSONHTTPClient
 
     public init(transport: any HTTPTransport = URLSessionTransport(), requestSpacing: Duration = .milliseconds(2100)) {
-        self.transport = transport
-        gate = RequestGate(spacing: requestSpacing)
+        http = JSONHTTPClient(transport: transport, requestSpacing: requestSpacing)
     }
 
     func get<T: Decodable & Sendable>(_ endpoint: String, query: [URLQueryItem]) async throws -> [T] {
         var components = URLComponents(string: "https://api.openf1.org/v1/\(endpoint)")!
         components.queryItems = query
         guard let url = components.url else { throw APIError.invalidResponse }
+        let data = try await http.get(url)
+        do {
+            let decoded = try JSONCoding.decoder().decode([T].self, from: data)
+            guard decoded.count <= 15_000 else { throw APIError.responseTooLarge }
+            return decoded
+        } catch let error as APIError { throw error }
+        catch { throw APIError.invalidData("unexpected OpenF1 response format") }
+    }
+
+    static func retryDate(_ value: String?, now: Date) -> Date {
+        JSONHTTPClient.retryDate(value, now: now)
+    }
+}
+
+// Both providers share the bounded transport, request budget and Retry-After rules.
+actor JSONHTTPClient {
+    private let transport: any HTTPTransport
+    private let gate: RequestGate
+    private var blockedUntil: Date?
+
+    init(transport: any HTTPTransport, requestSpacing: Duration) {
+        self.transport = transport
+        gate = RequestGate(spacing: requestSpacing)
+    }
+
+    func get(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url)
         request.setValue("F1MenuBar/0.1 (macOS; personal calendar client)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
@@ -107,12 +130,7 @@ public actor OpenF1Client {
                 continue
             }
             guard (200...299).contains(response.status) else { throw APIError.http(response.status) }
-            do {
-                let decoded = try JSONCoding.decoder().decode([T].self, from: response.data)
-                guard decoded.count <= 15_000 else { throw APIError.responseTooLarge }
-                return decoded
-            } catch let error as APIError { throw error }
-            catch { throw APIError.invalidData("unexpected response format") }
+            return response.data
         }
         throw APIError.invalidResponse
     }

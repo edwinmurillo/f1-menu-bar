@@ -31,11 +31,15 @@ struct SettingsView: View {
                     }
                 }
                 Section("Data") {
-                    LabeledContent("Provider") { Link("OpenF1", destination: URL(string: "https://openf1.org/")!) }
+                    LabeledContent("Current source") {
+                        Link(Presentation.providerName(store.snapshot.provider), destination: Presentation.providerURL(store.snapshot.provider))
+                    }
                     Text("Schedules, published race results and championship points. Cached data stays available when a connection fails.")
                         .font(.callout).foregroundStyle(.secondary)
-                    Text("OpenF1 is an independent service. Championship endpoints are in beta; this app does not provide live timing.")
+                    Text("OpenF1 is the primary source. Jolpica supplies a backup when OpenF1 is unavailable, including during live sessions. Both are independent services; this app does not provide live timing.")
                         .font(.caption).foregroundStyle(.secondary)
+                    Link("Jolpica data · CC BY-NC-SA 4.0", destination: URL(string: "https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md")!)
+                        .font(.caption)
                     HStack {
                         Text("Last update")
                         Spacer()

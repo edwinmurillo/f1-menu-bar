@@ -2,6 +2,12 @@ import F1Core
 import SwiftUI
 
 enum Presentation {
+    static func providerName(_ provider: DataProvider) -> String {
+        provider == .openF1 ? "OpenF1" : "Jolpica · backup"
+    }
+    static func providerURL(_ provider: DataProvider) -> URL {
+        URL(string: provider == .openF1 ? "https://openf1.org/" : "https://github.com/jolpica/jolpica-f1")!
+    }
     static let accent = Color(red: 0.87, green: 0.25, blue: 0.20)
     static func date(_ date: Date?, format: String, zone: TimeZone) -> String {
         guard let date else { return "Time TBC" }

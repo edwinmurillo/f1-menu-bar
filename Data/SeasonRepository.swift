@@ -17,8 +17,9 @@ public actor OpenF1Repository: SeasonRepository {
     public func cached(year: Int) async throws -> SeasonSnapshot? { try await cache.load(year: year) }
 
     public func refresh(year: Int, previous: SeasonSnapshot?, publish: @escaping @Sendable (SeasonSnapshot) async -> Void) async throws -> SeasonSnapshot {
-        var value = previous?.year == year ? previous! : SeasonSnapshot(year: year)
+        var value = previous?.year == year && previous?.provider == .openF1 ? previous! : SeasonSnapshot(year: year)
         value.issues = [:]
+        var scheduleAvailable = false
         do {
             let query = [URLQueryItem(name: "year", value: String(year))]
             let meetings: [MeetingDTO] = try await client.get("meetings", query: query)
@@ -26,9 +27,11 @@ public actor OpenF1Repository: SeasonRepository {
             try Task.checkCancellation()
             value.weekends = try Self.mapSchedule(meetings: meetings, sessions: sessions, previous: value.weekends, year: year)
             value.scheduleUpdatedAt = now()
+            scheduleAvailable = true
         } catch is CancellationError { throw CancellationError() }
         catch { value.issues[.schedule] = error.localizedDescription }
         value = try await publishAndSave(value, publish: publish)
+        guard scheduleAvailable else { return value }
 
         // Future-only calendars need no results or championship requests.
         guard value.weekends.contains(where: { ($0.grandPrix?.start ?? .distantFuture) <= now() && !$0.isCancelled }) else { return value }
@@ -84,7 +87,7 @@ public actor OpenF1Repository: SeasonRepository {
                             return DriverStanding(driverNumber: row.driverNumber, position: row.positionCurrent,
                                 name: person?.name ?? old?.name ?? "Driver \(row.driverNumber)",
                                 team: person?.teamName ?? old?.team ?? "Team unavailable", teamColor: person?.teamColour ?? old?.teamColor, points: row.pointsCurrent)
-                        }.sorted { $0.position == $1.position ? $0.driverNumber < $1.driverNumber : $0.position < $1.position }
+                        }.sorted { $0.position == $1.position ? $0.id < $1.id : ($0.position ?? .max) < ($1.position ?? .max) }
                         value.driverContext = ChampionshipContext(sessionID: race.id, meetingName: weekend.name, updatedAt: now())
                     } else {
                         let rows: [TeamChampionshipDTO] = try await client.get("championship_teams", query: query)
@@ -97,7 +100,7 @@ public actor OpenF1Repository: SeasonRepository {
                             return ConstructorStanding(name: row.teamName, position: row.positionCurrent,
                                 drivers: names.isEmpty ? old?.drivers ?? "" : names,
                                 color: roster.first?.teamColour ?? old?.color, points: row.pointsCurrent)
-                        }.sorted { $0.position == $1.position ? $0.name < $1.name : $0.position < $1.position }
+                        }.sorted { $0.position == $1.position ? $0.name < $1.name : ($0.position ?? .max) < ($1.position ?? .max) }
                         value.constructorContext = ChampionshipContext(sessionID: race.id, meetingName: weekend.name, updatedAt: now())
                     }
                     found = true

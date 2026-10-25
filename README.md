@@ -13,8 +13,9 @@ A native macOS menu bar app for the next Formula 1 weekend, the season calendar,
 - Every returned driver and constructor, preserving provider positions and decimal points.
 - System/light/dark appearance, optional launch at login, manual refresh, and wake/year-boundary handling.
 - Cached data and independent section updates; a failed standings request does not erase a working calendar.
+- Automatic Jolpica backup when OpenF1 is unavailable, including its live-session access restriction.
 
-The first version provides schedules and published results, not live timing. The optional wins column from the concept is omitted; points come directly from OpenF1 rather than locally reconstructed scoring.
+The first version provides schedules and published results, not live timing. The optional wins column from the concept is omitted; points come directly from the active provider rather than locally reconstructed scoring.
 
 ## Requirements
 
@@ -56,15 +57,17 @@ Scripts/build.sh
 
 ## Data and behavior
 
-The independent [OpenF1 API](https://openf1.org/docs/) supplies sessions, classifications, and both beta championship tables. Data joins are scoped to the season and session. A driver missing from the latest race roster is resolved from earlier sessions in that same season.
+The independent [OpenF1 API](https://openf1.org/docs/) is the primary source for sessions, classifications, and beta championship tables. OpenF1 can block **all unauthenticated requests during a live session**, including the calendar. The app then uses [Jolpica](https://github.com/jolpica/jolpica-f1) for a complete calendar, GP winners, and championship snapshot. The active source is shown in the panel, calendar, standings, and Settings.
+
+Provider snapshots and caches remain separate; race IDs, results, and points are never merged across providers. OpenF1 joins use the season and session; missing driver metadata is resolved from earlier sessions in the same season. Jolpica joins use season and round with event metadata checks. Standings use an explicit round with a published GP result, including fallback to an earlier completed round when necessary. Missing driver numbers, non-numeric classifications, decimal points, and deductions are preserved. Jolpica does not supply session end times or cancellation flags; the app does not invent them.
 
 The current weekend stays selected through its race. A published GP classification advances it. If no result appears within six hours of the scheduled start, focus advances while the previous GP remains **Results pending**. Scheduled start/end times alone never establish a winner or confirmed completion.
 
 After the season ends, the app checks the following calendar. The completed season stays available when the next one is unpublished. Each championship table identifies its season and the race associated with its snapshot.
 
-Requests use an app User-Agent, a rate below 30 requests/minute, bounded responses, and `Retry-After` handling. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
+Requests use an app User-Agent, a rate below 30 requests/minute per provider, bounded responses, and `Retry-After` handling. Jolpica requests use at most five pages of 100 rows per endpoint and reject incomplete pagination. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
 
-Versioned JSON snapshots are written atomically in the app’s sandboxed Application Support directory, under `F1MenuBar/openf1-v1`. Preferences use `UserDefaults`. Missing, corrupt, and unavailable data remain distinct. The smoke script uses `.build/live-smoke-cache`, separate from app data.
+Versioned JSON snapshots are written atomically in the app’s sandboxed Application Support directory, under `F1MenuBar/openf1-v1` and `F1MenuBar/jolpica-v1`. The newest available provider cache can restore the app offline. Preferences use `UserDefaults`. Missing, corrupt, and unavailable data remain distinct. The smoke script uses `.build/live-smoke-cache`, separate from app data.
 
 ## Project structure
 
@@ -73,7 +76,7 @@ App/          Composition, routing, preferences, login items, assets
 Features/     Next weekend, calendar, standings, settings, shared views
 State/        Main-actor state and refresh ownership
 Domain/       Models and time/status policies
-Data/         OpenF1 transport, mapping, disk cache
+Data/         OpenF1/Jolpica adapters, fallback, HTTP transport, disk cache
 Tests/        Fixtures, failures, date boundaries, async interleavings
 Scripts/      Generate, build, test, run, live verification
 docs/         Verification evidence and remaining manual checks
@@ -86,4 +89,4 @@ AGENTS.md     Contributor/agent guidance; also linked as Claude.md
 
 Local builds use ad-hoc signing and the App Sandbox with outbound network access. The core module is linked statically into the app, avoiding an embedded framework that ad-hoc hardened-runtime builds cannot load. Every build checks the signature and packaging. This is not a notarized download or App Store release. Developer ID signing, notarization, packaging, and commercial provider terms require a separate distribution pass.
 
-This independent app is not affiliated with Formula 1, the FIA, or any team. OpenF1 is also independent; availability and beta championship data can change.
+This independent app is not affiliated with Formula 1, the FIA, or any team. Both data providers are independent; availability and beta championship data can change. Jolpica data is used under [CC BY-NC-SA 4.0](https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md); commercial distribution requires a separate arrangement with that provider.

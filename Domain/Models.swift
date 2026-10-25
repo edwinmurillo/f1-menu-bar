@@ -1,5 +1,10 @@
 import Foundation
 
+public enum DataProvider: String, Codable, Sendable {
+    case openF1 = "openf1"
+    case jolpica
+}
+
 public struct RaceSession: Codable, Identifiable, Equatable, Sendable {
     public let id: Int
     public let name: String
@@ -20,7 +25,7 @@ public struct RaceSession: Codable, Identifiable, Equatable, Sendable {
 }
 
 public struct RaceWinner: Codable, Equatable, Sendable {
-    public let driverNumber: Int
+    public let driverNumber: Int?
     public let driverName: String
     public let team: String
 }
@@ -53,9 +58,11 @@ public struct RaceWeekend: Codable, Identifiable, Equatable, Sendable {
 }
 
 public struct DriverStanding: Codable, Identifiable, Equatable, Sendable {
-    public var id: Int { driverNumber }
-    public let driverNumber: Int
-    public let position: Int
+    public var id: String { driverID ?? "number-\(driverNumber.map(String.init) ?? name)" }
+    public var driverID: String? = nil
+    public let driverNumber: Int?
+    public let position: Int?
+    public var positionText: String? = nil
     public let name: String
     public let team: String
     public let teamColor: String?
@@ -65,7 +72,8 @@ public struct DriverStanding: Codable, Identifiable, Equatable, Sendable {
 public struct ConstructorStanding: Codable, Identifiable, Equatable, Sendable {
     public var id: String { name }
     public let name: String
-    public let position: Int
+    public let position: Int?
+    public var positionText: String? = nil
     public let drivers: String
     public let color: String?
     public let points: Double
@@ -79,12 +87,13 @@ public struct ChampionshipContext: Codable, Equatable, Sendable {
     public let sessionID: Int
     public let meetingName: String
     public let updatedAt: Date
+    public var round: Int? = nil
 }
 
 public struct SeasonSnapshot: Codable, Equatable, Sendable {
     public static let schemaVersion = 1
     public var schema: Int = Self.schemaVersion
-    public var provider: String = "openf1"
+    public var provider: DataProvider = .openF1
     public let year: Int
     public var weekends: [RaceWeekend] = []
     public var drivers: [DriverStanding] = []
@@ -95,7 +104,7 @@ public struct SeasonSnapshot: Codable, Equatable, Sendable {
     public var constructorContext: ChampionshipContext?
     public var issues: [DataSection: String] = [:]
 
-    public init(year: Int) { self.year = year }
+    public init(year: Int, provider: DataProvider = .openF1) { self.year = year; self.provider = provider }
     public var latestUpdate: Date? {
         [scheduleUpdatedAt, resultsUpdatedAt, driverContext?.updatedAt, constructorContext?.updatedAt].compactMap { $0 }.max()
     }

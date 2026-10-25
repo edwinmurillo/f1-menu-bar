@@ -8,17 +8,19 @@ struct LiveSmoke {
         calendar.timeZone = TimeZone(secondsFromGMT: 0)!
         let year = calendar.component(.year, from: Date())
         let directory = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent(".build/live-smoke-cache")
-        let cache = SnapshotCache(directory: directory)
-        let repository = OpenF1Repository(client: OpenF1Client(), cache: cache)
+        let repository = FallbackSeasonRepository(
+            primary: OpenF1Repository(client: OpenF1Client(), cache: SnapshotCache(directory: directory)),
+            fallback: JolpicaRepository(client: JolpicaClient(), cache: SnapshotCache(directory: directory, provider: .jolpica)))
         let result = try await repository.refresh(year: year, previous: nil) { partial in
             print("Calendar: \(partial.weekends.count); winners: \(partial.weekends.filter { $0.winner != nil }.count); drivers: \(partial.drivers.count); constructors: \(partial.constructors.count)")
         }
         guard !result.weekends.isEmpty else { throw APIError.invalidData("no season calendar") }
         guard result.issues.isEmpty else { throw APIError.invalidData(result.issues.values.joined(separator: "; ")) }
-        let restored = try await cache.load(year: year)
+        let restored = try await SnapshotCache(directory: directory, provider: result.provider).load(year: year)
         guard restored == result else { throw CacheError.incompatible }
         let summary: [String: Any] = [
             "year": year,
+            "provider": result.provider.rawValue,
             "weekends": result.weekends.count,
             "cancelled": result.weekends.filter(\.isCancelled).count,
             "winners": result.weekends.filter { $0.winner != nil }.count,

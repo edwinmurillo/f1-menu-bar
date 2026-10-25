@@ -10,7 +10,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 - `Features/`: NextWeekend, Calendar, Standings, and Settings SwiftUI views and presentation models.
 - `State/`: main-actor refresh coordination and observable season state, shared with core tests.
 - `Domain/`: normalized models, event selection, and time/status rules.
-- `Data/`: OpenF1 DTOs and mapping, HTTP transport, repository, and disk cache; any alternative provider stays behind the repository boundary.
+- `Data/`: OpenF1/Jolpica DTOs and mapping, HTTP transport, provider repositories, automatic fallback, and separate disk caches.
 - `Tests/`: domain and repository tests plus small JSON fixtures.
 - `Scripts/`: reproducible generation/build/test/run commands.
 - `project.yml`: XcodeGen source of truth.
@@ -29,6 +29,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 - OpenF1 includes testing and cancelled sessions; exclude these from upcoming GP selection. Resolve championship snapshots using an explicit completed Race session. Scope driver-number joins to season/session and resolve roster changes within the season without dropping standings rows. Beta endpoint data and scheduled end times require explicit validation.
 - Preserve provider championship positions and points, including ties, deductions, and decimal points. Do not recreate the scoring rules locally.
 - Set an identifiable application/version `User-Agent`, honor `Retry-After`, bound retries and pagination, and cache responses.
+- OpenF1 can return a global HTTP 401 during live sessions, even for historical/calendar requests. Use the Jolpica fallback without combining provider snapshots or IDs. Keep source attribution visible and use an explicitly completed round for Jolpica standings. Missing times and cancellation flags must not be invented.
 - Never embed secrets. The planned API calls require no credentials. Verify current provider documentation before changing API assumptions.
 
 ## Build and verification

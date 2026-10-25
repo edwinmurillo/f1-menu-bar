@@ -26,6 +26,14 @@
 - Initial installed launches exposed a hardened-runtime library-validation failure: the ad-hoc dynamic F1Core framework could not load despite passing code-signature verification. F1Core is now linked statically, with no embedded core framework. The corrected universal Release build and all 24 optimized core tests passed. The build now checks for signature failures, dynamic core linkage, and stale embedded frameworks.
 - A subsequent process sample identified a continuous menu-bar status-button update loop at launch, while the custom label contained a TimelineView and lifecycle modifiers. Replaced it with a plain Label and moved startup, refresh timing, wake handling, and timezone notifications into AppLifecycle. The Release build passed; the hung process was stopped, and the corrected app was reinstalled and launched.
 
+## Calendar availability fix
+
+- The installed app's network log and a direct `meetings?year=2026` request returned HTTP 401 at 20:31 UTC. The response explicitly stated that a live session restricted global API access, including past sessions. The network sandbox entitlement was present; this was a provider restriction.
+- Added Jolpica as an automatic backup for full schedules, GP winners, and standings. Provider snapshots, identities, and disk caches remain separate. Source attribution follows the active snapshot.
+- The universal Release build passed its signature/static-link checks. All 32 optimized core tests passed, including first-launch 401 fallback, recovery to OpenF1 without merging identities, separate caches, both providers failing, partial standings failure, wrong-round responses, missing times/numbers, non-numeric classifications, decimal/deducted points, and pagination limits.
+- The production Swift repository selected Jolpica and decoded 23 weekends, 17 published GP winners, 23 drivers, and 11 constructors, then round-tripped its cache. The featured weekend was United States Grand Prix and both points tables were scoped to the published Singapore GP. These are dated API observations, not constants or visual app verification.
+- Replaced the installed bundle with the Release fallback build and issued its launch command. No UI inspection was performed, as requested by the user.
+
 ## Native verification pending
 
 Visual inspection after the latest startup fix is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified. A successful launch command, compilation, unit tests, and the headless API check do not establish those behaviors.

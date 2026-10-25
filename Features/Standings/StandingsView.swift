@@ -14,7 +14,7 @@ struct StandingsView: View {
             if let issue = snapshot.issues[drivers ? .drivers : .constructors] { IssueBanner(message: issue) }
             if drivers && !snapshot.drivers.isEmpty {
                 Table(snapshot.drivers) {
-                    TableColumn("Pos") { row in Text(row.position.formatted()).monospacedDigit().foregroundStyle(.secondary) }.width(40)
+                    TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
                     TableColumn("Driver") { row in
                         standingName(row.name, subtitle: row.team, color: row.teamColor)
                     }.width(min: 220, ideal: 400)
@@ -22,7 +22,7 @@ struct StandingsView: View {
                 }.tableStyle(.inset(alternatesRowBackgrounds: false))
             } else if !drivers && !snapshot.constructors.isEmpty {
                 Table(snapshot.constructors) {
-                    TableColumn("Pos") { row in Text(row.position.formatted()).monospacedDigit().foregroundStyle(.secondary) }.width(40)
+                    TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
                     TableColumn("Constructor") { row in
                         standingName(row.name, subtitle: row.drivers, color: row.color)
                     }.width(min: 220, ideal: 400)
@@ -34,7 +34,7 @@ struct StandingsView: View {
             }
             HStack(spacing: 5) {
                 Image(systemName: "info.circle")
-                Text("Published championship points · OpenF1 beta")
+                Text("Published championship points · \(Presentation.providerName(snapshot.provider))\(snapshot.provider == .openF1 ? " beta" : "")")
             }.font(.caption).foregroundStyle(.secondary)
         }.padding(26)
     }

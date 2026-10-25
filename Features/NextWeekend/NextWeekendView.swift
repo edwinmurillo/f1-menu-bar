@@ -44,7 +44,7 @@ struct NextWeekendView: View {
                     Label(preferences.timeZoneLabel, systemImage: "globe")
                         .font(.caption).foregroundStyle(.secondary)
                     Spacer(minLength: 2)
-                    if store.isRefreshing { ProgressView().controlSize(.mini).help("Refreshing from OpenF1") }
+                    if store.isRefreshing { ProgressView().controlSize(.mini).help("Refreshing race data") }
                     Button { Task { await store.refresh(force: true) } } label: {
                         Image(systemName: "arrow.clockwise")
                     }.disabled(store.isRefreshing).help("Refresh data").accessibilityLabel("Refresh data")
@@ -56,7 +56,7 @@ struct NextWeekendView: View {
                     }.help("Quit F1 Menu Bar").accessibilityLabel("Quit F1 Menu Bar")
                 }.buttonStyle(.borderless)
                 HStack {
-                    Text("OpenF1")
+                    Text(Presentation.providerName(store.snapshot.provider))
                     Spacer()
                     Text(store.isRefreshing ? "Refreshing…" : store.snapshot.latestUpdate.map { "Updated \(Presentation.date($0, format: "jmm", zone: preferences.timeZone))" } ?? "Waiting for data")
                 }.font(.caption2).foregroundStyle(.tertiary)

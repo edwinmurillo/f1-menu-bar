@@ -33,7 +33,7 @@ Aim for a roughly 360–400 point panel with native spacing and typography, a re
 
 ## 3. API decision and evidence
 
-**Updated proposal after the OpenF1 comparison: use OpenF1 as the primary provider.** Live checks confirmed upcoming sessions, completed race results, and both championship tables. Its session end times and cancellation flags are useful additions to the original Jolpica-only proposal. The championship endpoints are beta, so validate them against known season snapshots during integration and keep the provider boundary replaceable. Jolpica remains a verified alternative; automatic mixing of conflicting provider records is outside the initial scope.
+**Updated proposal after the OpenF1 comparison: use OpenF1 as the primary provider.** Live checks confirmed upcoming sessions, completed race results, and both championship tables. Its session end times and cancellation flags are useful additions to the original Jolpica-only proposal. The championship endpoints are beta, so validate them against known season snapshots during integration and keep the provider boundary replaceable. Following the installed app’s calendar failure on 25 October, Jolpica is an automatic backup when OpenF1 fails. Switch complete snapshots and keep provider-specific caches; do not mix conflicting provider records.
 
 ### OpenF1
 
@@ -52,7 +52,7 @@ OpenF1 is an independent community API, not an official Formula 1 service. It do
 
 Implementation must exclude testing and explicitly cancelled races from upcoming selection, join sessions through `meeting_key`, and keep driver-number identity scoped to the season and relevant session. Championship rows may include a driver absent from the latest race roster; resolve that driver's metadata from earlier season sessions rather than dropping the row. Select a completed **Race** session explicitly for standings; `latest` could instead identify practice or qualifying. Use provider `position_current` and `points_current`; names require metadata joins. The requested points tables are required; the proposed optional wins column needs separate result aggregation or can be omitted.
 
-Free access suits a schedule and published-results app; immediate live classifications are not a promised feature. Respect the current free limits of 3 requests/second and 30/minute, cache requests, and distinguish a subscription-required response from a network failure. Treat scheduled session end times as schedule information, not proof of actual completion.
+A later live-session request on 25 October returned HTTP 401 with an explicit global restriction, including past-session data. Free OpenF1 access alone therefore cannot guarantee calendar availability during a race. Use the Jolpica backup for this failure; immediate live classifications are not a promised feature. Respect the current free limits of 3 requests/second and 30/minute, cache requests, and distinguish a subscription-required response from a network failure. Treat scheduled session end times as schedule information, not proof of actual completion.
 
 ### Formula 1's official calendar
 
@@ -60,7 +60,7 @@ The official [download/sync announcement](https://www.formula1.com/en/latest/art
 
 An official calendar subscription exists. A general supported public developer API covering schedules, winners, and championship points was not established by this research. Do not equate these two claims, or claim that Formula 1 has no APIs internally. Arturo's existing subscription URL has not yet been inspected. Treat it as a candidate for schedule cross-checking or a future calendar adapter once its accessible format and coverage are verified; winners and championship points still need a results source.
 
-### Jolpica, the original verified alternative
+### Jolpica, the automatic backup
 
 Jolpica's established Ergast-compatible endpoints cover the requested data, including explicit sprint qualifying times. The provider documents its [race fields](https://github.com/jolpica/jolpica-f1/blob/main/docs/endpoints/races.md) and [sprint naming differences](https://github.com/jolpica/jolpica-f1/blob/main/docs/ergast_differences.md).
 
@@ -70,10 +70,10 @@ Base URL: `https://api.jolpi.ca/ergast/f1/`. Use an explicit season year consist
 | --- | --- |
 | Full calendar and session start times | `{year}.json?limit=100` |
 | GP winners for the season | `{year}/results/1.json?limit=100` |
-| Driver championship | `{year}/driverstandings.json?limit=100` |
-| Constructor championship | `{year}/constructorstandings.json?limit=100` |
+| Driver championship | `{year}/{completedRound}/driverStandings.json?limit=100` |
+| Constructor championship | `{year}/{completedRound}/constructorStandings.json?limit=100` |
 
-Read `total`, `limit`, and `offset` and fetch additional pages when needed. The winners query filters finishing position 1; it is not a request for round 1. Join winners to calendar events by season and round, with circuit identity checked during reconciliation.
+Request `limit=100`, validate `total` and `offset`, and fetch additional pages when needed, bounded to five pages and 500 rows. Select an explicit completed GP round for standings; an unscoped latest table may already include the current weekend’s sprint. The winners query filters finishing position 1; it is not a request for round 1. Join winners to calendar events by season and round, with circuit identity checked during reconciliation.
 
 **Verified during planning:** all four requests above succeeded for 2026 without authentication. The responses contained 23 scheduled races, six sprint weekends with six `SprintQualifying` entries, 17 GP winner records, 23 driver standings rows, and 11 constructor rows. Both standings responses identified round 17. These are observations of the provider response on the research date, not constants or independent confirmation of official race facts.
 
@@ -110,7 +110,7 @@ The season tables show every returned driver/team and scroll as needed. Driver r
 
 - **Platform:** native Swift 6 and SwiftUI; proposed minimum macOS 14. Use `MenuBarExtra` with window style, a regular detail window, and `LSUIElement` for the menu bar app lifecycle. Apple's [MenuBarExtra documentation](https://developer.apple.com/documentation/swiftui/menubarextra) covers this presentation model. Verify focus, reopening, and settings behavior on the actual Mac.
 - **Project:** XcodeGen configuration as the source of truth, an app target and XCTest target, and repository-owned scripts. Use Swift Package Manager only when a dependency is justified; no third-party client is required initially.
-- **Layers:** app composition root → feature presentation models → schedule/standings repository → OpenF1 client and disk cache. Keep provider-specific DTOs and identities behind the repository boundary. Inject transport, clock, and cache so date rules and error behavior can be tested without the network.
+- **Layers:** app composition root → feature presentation models → schedule/standings repository → OpenF1/Jolpica clients and separate disk caches. Keep provider-specific DTOs and identities behind the repository boundary. Inject transport, clock, and cache so date rules and error behavior can be tested without the network.
 - **Models:** race weekend, session, GP winner, driver standing, constructor standing, and data freshness. Normalize transport DTOs at the data boundary and keep UI formatting out of domain models.
 - **Concurrency:** main-actor presentation state; one refresh coordinator; bounded HTTP work; explicit off-main cache/decoding ownership. Reject late responses from obsolete season selections or refresh generations.
 - **Storage:** small versioned JSON snapshots in Application Support, keyed by provider/season/endpoint; serialized atomic writes and a conservative size limit. Use `UserDefaults` for preferences. A database is unnecessary for the initial dataset.
@@ -154,7 +154,7 @@ Use deterministic XCTest fixtures and controllable clocks, not sleep-based async
 
 Optional follow-ups include session reminders, calendar export, favorite driver/team emphasis, a spoiler-hiding setting, previous-season browsing, full race classifications, and richer live timing through a separately evaluated provider.
 
-The implementation includes the native shell, OpenF1 data foundation, next-GP panel, full calendar, both points tables, settings, and verification scripts. Fixtures are confined to the test target; production always uses OpenF1. The optional wins column is deferred as allowed in the API decision. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
+The implementation includes the native shell, OpenF1 with a Jolpica backup, next-GP panel, full calendar, both points tables, settings, and verification scripts. Fixtures are confined to the test target; production uses the providers’ HTTPS APIs. The optional wins column is deferred as allowed in the API decision. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
 
 ## 11. Design exploration
 

@@ -21,7 +21,7 @@ struct CalendarView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 22) {
-            SectionHeader(title: "Season calendar", subtitle: "\(String(snapshot.year)) · Every weekend, at a glance")
+            SectionHeader(title: "Season calendar", subtitle: "\(String(snapshot.year)) · \(Presentation.providerName(snapshot.provider))")
             if let issue = snapshot.issues[.schedule] ?? snapshot.issues[.results] { IssueBanner(message: issue) }
             if snapshot.weekends.isEmpty {
                 ContentUnavailableView(store.isRefreshing ? "Loading the calendar" : "Calendar not available", systemImage: "calendar", description: Text("Race weekends will appear when the season is published."))

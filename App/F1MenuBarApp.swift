@@ -12,8 +12,9 @@ struct F1MenuBarApp: App {
 
     init() {
         let directory = URL.applicationSupportDirectory.appending(path: "F1MenuBar", directoryHint: .isDirectory)
-        let cache = SnapshotCache(directory: directory)
-        let repository = OpenF1Repository(client: OpenF1Client(), cache: cache)
+        let repository = FallbackSeasonRepository(
+            primary: OpenF1Repository(client: OpenF1Client(), cache: SnapshotCache(directory: directory)),
+            fallback: JolpicaRepository(client: JolpicaClient(), cache: SnapshotCache(directory: directory, provider: .jolpica)))
         let store = SeasonStore(repository: repository)
         _store = State(initialValue: store)
         lifecycle.store = store
