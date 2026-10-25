@@ -40,6 +40,9 @@ struct NextWeekendView: View {
                         Label("Standings", systemImage: "trophy").frame(maxWidth: .infinity)
                     }
                 }.buttonStyle(.bordered).controlSize(.regular)
+                Button { coordinator.show(.live, openWindow: openWindow) } label: {
+                    Label("Live timing", systemImage: "dot.radiowaves.left.and.right").frame(maxWidth: .infinity)
+                }.buttonStyle(.bordered).controlSize(.regular)
                 HStack(spacing: 8) {
                     Label(preferences.timeZoneLabel, systemImage: "globe")
                         .font(.caption).foregroundStyle(.secondary)

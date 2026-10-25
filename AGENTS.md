@@ -7,8 +7,8 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 ## Organization
 
 - `App/`: composition root, menu bar scene, window routing, and app lifecycle.
-- `Features/`: NextWeekend, Calendar, Standings, and Settings SwiftUI views and presentation models.
-- `State/`: main-actor refresh coordination and observable season state, shared with core tests.
+- `Features/`: NextWeekend, Calendar, Standings, LiveTiming, and Settings SwiftUI views and presentation models.
+- `State/`: main-actor season refresh and live connection ownership, shared with core tests.
 - `Domain/`: normalized models, event selection, and time/status rules.
 - `Data/`: OpenF1/Jolpica DTOs and mapping, HTTP transport, provider repositories, automatic fallback, and separate disk caches.
 - `Tests/`: domain and repository tests plus small JSON fixtures.
@@ -30,6 +30,8 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 - Preserve provider championship positions and points, including ties, deductions, and decimal points. Do not recreate the scoring rules locally.
 - Set an identifiable application/version `User-Agent`, honor `Retry-After`, bound retries and pagination, and cache responses.
 - OpenF1 can return a global HTTP 401 during live sessions, even for historical/calendar requests. Use the Jolpica fallback without combining provider snapshots or IDs. Keep source attribution visible and use an explicitly completed round for Jolpica standings. Missing times and cancellation flags must not be invented.
+- Live timing is a separate experimental personal connection. Keep its actor-owned SignalR transport and in-memory snapshot outside the season repository; never turn provisional timing into winners or points. Connect only while its view is visible, honor manual disconnect and sleep, and reject obsolete connection callbacks.
+- Merge sparse timing updates, reset on a new subscription/session, bound frames/state, and coalesce publication. A Started status plus a recent timestamped TimingData delta establishes freshness; snapshots and pings do not. Use anonymous topics only, with no account tokens, recording, or backend redistribution.
 - Never embed secrets. The planned API calls require no credentials. Verify current provider documentation before changing API assumptions.
 
 ## Build and verification

@@ -14,11 +14,29 @@ After the season ends, the app checks the following calendar. The completed seas
 
 During a GP weekend's dates in the selected display timezone, each standings table shows **Waiting for this weekend’s results** until its championship snapshot includes that GP. A published winner alone does not remove this message: driver and constructor standings can arrive separately. The message is hidden outside the weekend's dates and for cancelled, removed, or unknown-date events.
 
-Requests use an app User-Agent, a rate below 30 requests/minute per provider, bounded responses, and `Retry-After` handling. Jolpica requests use at most five pages of 100 rows per endpoint and reject incomplete pagination. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
+Season requests use an app User-Agent, a rate below 30 requests/minute per provider, bounded responses, and `Retry-After` handling. Jolpica requests use at most five pages of 100 rows per endpoint and reject incomplete pagination. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
 
 Versioned JSON snapshots are written atomically in the app’s sandboxed Application Support directory, under `F1MenuBar/openf1-v1` and `F1MenuBar/jolpica-v1`. The newest available provider cache can restore the app offline. Preferences use `UserDefaults`. Missing, corrupt, and unavailable data remain distinct. The smoke script uses `.build/live-smoke-cache`, separate from app data.
 
 
+## Experimental personal live timing
+
+The Live timing view connects directly to `https://livetiming.formula1.com/signalrcore/negotiate` and the matching WSS endpoint. This is an unsupported F1 service used anonymously, not a supported public developer API. The integration uses [SignalR Core’s JSON protocol](https://github.com/dotnet/aspnetcore/blob/main/src/SignalR/docs/specs/HubProtocol.md); F1-specific negotiation, topic names, and sparse updates were researched in the [F1 Telemetry Dashboard client](https://github.com/mricero/F1-Telemetry-Dashboard/blob/main/src/f1dash/data/signalr_core.py). No third-party client library is bundled.
+
+The subscribed topics are `SessionInfo`, `SessionStatus`, `TrackStatus`, `DriverList`, `TimingData`, `TimingAppData`, `LapCount`, `RaceControlMessages`, and `WeatherData`. Fields can be missing. The view follows the session actually published by the feed, including practice, qualifying, sprints, or a previously finished race; it does not associate old timing with the calendar’s next GP.
+
+Positions, gaps, laps, best/last/sector times, compounds, tyre age, observed stint history, and pit counts remain provisional. Tyre `TotalLaps` includes previous use of the tyre set; `StartLaps` is retained separately. Future team strategy and exact stationary pit-stop durations are not inferred. Timing does not alter published winners or championship points.
+
+Each subscription replaces the prior raw state, then merges sparse updates. A changed session identity clears old drivers and messages. Only a Started session with a TimingData delta timestamp no more than 30 seconds old (allowing five seconds of clock skew) receives **Live** status. Initial snapshots and connection pings never establish liveness. Finished, disconnected, and stale timing remain labeled; a wrong Mac clock can prevent the Live label.
+
+The connection exists while the section and window are visible. Closing, minimizing/covering the window, switching sections, sleeping, or Disconnect cancels it. Automatic visibility/wake reconnection respects a manual pause. The transport owns ephemeral load-balancer cookies and connection IDs, uses an identifiable app User-Agent, rejects redirects, and sends no account credentials. It never requests paid car/position telemetry, radio, or a token bypass.
+
+Transient failures receive at most three retries at 2, 5, and 15 seconds; a connection stable for a minute resets that budget. Access/rate refusals stop automatic retries and enforce at least a two-minute cooldown plus any longer Retry-After. Negotiation reads, WebSocket frames, JSON depth, stored timing, and early updates are bounded. Recent race control is capped at 40 messages; UI updates are coalesced to roughly one per second. Timing is kept in memory only: no disk recording or proxy server.
+
+`Scripts/live-timing-smoke.sh Release` uses the production Swift client for a connection of up to 45 seconds. It prints session identity, field counts, interruptions, and whether fresh timing was observed. It prints no cookies or connection IDs. Snapshot access alone does not verify active-session delivery or the app’s native UI.
+
 ## Provider terms
 
 Both providers are independent of Formula 1 and the FIA. OpenF1 championship endpoints are in beta. Jolpica data is provided under [CC BY-NC-SA 4.0](https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md); commercial use requires a separate arrangement with that provider. These data terms are separate from this repository’s source-code license, which has not been selected.
+
+The personal timing experiment does not establish permission for redistribution or commercial use. F1’s [guidelines](https://www.formula1.com/en/information/guidelines.4EOKE9RRqevL4niTK9kWyt) and [legal notices](https://www.formula1.com/en/information/legal-notices.7egvZU48hzrypubGBNcQKt) apply independently of whether an endpoint accepts an anonymous connection. Access can change or be withdrawn.

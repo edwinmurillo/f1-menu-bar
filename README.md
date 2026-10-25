@@ -21,11 +21,12 @@ Built natively with Swift and SwiftUI. No account, API key, or backend setup req
 | **Next race weekend** | The full session schedule, including sprint qualifying and sprints when scheduled, plus an optional menu bar countdown. The panel shows **Ongoing Grand Prix** during the featured weekend’s dates. |
 | **Season calendar** | Past, current, next, and future weekends, with published GP winners and clear states for pending results, cancellations, or schedule changes when reported. |
 | **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. During a GP weekend, each table shows “Waiting for this weekend’s results” until its points include that GP. |
+| **Personal live timing** | An experimental session table with positions, gaps, lap times, tyre compounds and age, stint history, pit counts, race control, and weather. Connects directly to F1 while the view is visible. |
 | **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |
 | **Mac preferences** | System, light, or dark appearance; optional launch at login; and manual refresh. |
 | **Saved data and a backup source** | Cached calendars remain available offline. Jolpica takes over when OpenF1 is unavailable, including during its live-session access restrictions. |
 
-This app shows schedules and published results. A scheduled start time does not mean a session is confirmed live or finished, and a winner appears only after a GP result is published.
+Schedules and published results stay separate from provisional timing. A scheduled start time does not mean a session is confirmed live or finished, and a winner appears only after a GP result is published. Live timing displays the session actually supplied by the feed, which can be a previous, finished session.
 
 ## Get started
 
@@ -58,7 +59,8 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 1. Click the checkered flag to see the next GP weekend and its session times.
 2. Choose **Full calendar** to browse weekends and published winners.
 3. Choose **Standings** to open driver and constructor points.
-4. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
+4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the view, switching sections, or sleeping the Mac stops the connection.
+5. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
 Closing the detail window keeps the menu bar app running. Use the panel’s power button to quit.
 
@@ -67,6 +69,8 @@ Closing the detail window keeps the menu bar app running. Use the panel’s powe
 [OpenF1](https://openf1.org/docs/) is the primary source. [Jolpica](https://github.com/jolpica/jolpica-f1) supplies a complete backup snapshot when OpenF1 is unavailable. The active provider is shown in the app; records and caches from different providers are kept separate.
 
 The current weekend stays in view through its race. Published results and standings can arrive at different times, so each points table identifies the GP associated with its snapshot. Cached data stays available when a refresh fails.
+
+The optional live view uses F1’s anonymous SignalR/WebSocket feed with no account token. It is an experimental personal-use integration with an unsupported endpoint: availability and fields can change. It keeps timing in memory and labels disconnected, stale, and finished data. Exact stationary pit-stop durations, future team strategy, and paid telemetry are outside this feature.
 
 See [data sources and freshness](docs/DATA_SOURCES.md) for selection rules, refresh intervals, caching, provider limitations, and attribution.
 
@@ -83,6 +87,7 @@ Scripts/test.sh Release     # Optimized core tests
 Scripts/check.sh            # Whitespace and project generation
 Scripts/check-app.sh        # Release signature and static-link packaging
 Scripts/live-smoke.sh       # Opt-in live API and disk-cache check
+Scripts/live-timing-smoke.sh # Opt-in 45-second anonymous timing connection
 ```
 
 Scripts honor `DEVELOPER_DIR` and find full Xcode when the system selects Command Line Tools. They do not change the global developer-directory setting. To choose an installation:
@@ -99,10 +104,10 @@ Builds are written to `.build/DerivedData/Build/Products/<configuration>/F1 Menu
 
 ```text
 App/          Composition, routing, preferences, login items, assets
-Features/     Next weekend, calendar, standings, settings, shared views
-State/        Main-actor state and refresh ownership
+Features/     Next weekend, calendar, standings, live timing, settings
+State/        Main-actor season refresh and live connection ownership
 Domain/       Models and time/status policies
-Data/         OpenF1/Jolpica adapters, fallback, HTTP transport, disk cache
+Data/         Season adapters, fallback/cache, bounded SignalR client
 Tests/        Fixtures, failures, date boundaries, async interleavings
 Scripts/      Generate, build, test, run, live verification
 docs/         Data notes, verification evidence, banner, and artwork prompt

@@ -36,7 +36,7 @@ struct SettingsView: View {
                     }
                     Text("Schedules, published race results and championship points. Cached data stays available when a connection fails.")
                         .font(.callout).foregroundStyle(.secondary)
-                    Text("OpenF1 is the primary source. Jolpica supplies a backup when OpenF1 is unavailable, including during live sessions. Both are independent services; this app does not provide live timing.")
+                    Text("OpenF1 is the primary source. Jolpica supplies a backup when OpenF1 is unavailable, including during live sessions. Live timing uses a separate, experimental connection to F1 while its view is visible.")
                         .font(.caption).foregroundStyle(.secondary)
                     Link("Jolpica data · CC BY-NC-SA 4.0", destination: URL(string: "https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md")!)
                         .font(.caption)

@@ -6,6 +6,7 @@ import SwiftUI
 struct F1MenuBarApp: App {
     @NSApplicationDelegateAdaptor(AppLifecycle.self) private var lifecycle
     @State private var store: SeasonStore
+    @State private var liveStore: LiveTimingStore
     @State private var preferences = AppPreferences()
     @State private var coordinator = AppCoordinator()
     @State private var loginItem = LoginItemController()
@@ -17,7 +18,10 @@ struct F1MenuBarApp: App {
             fallback: JolpicaRepository(client: JolpicaClient(), cache: SnapshotCache(directory: directory, provider: .jolpica)))
         let store = SeasonStore(repository: repository)
         _store = State(initialValue: store)
+        let liveStore = LiveTimingStore(feed: F1LiveTimingClient())
+        _liveStore = State(initialValue: liveStore)
         lifecycle.store = store
+        lifecycle.liveStore = liveStore
     }
 
     var body: some Scene {
@@ -31,9 +35,9 @@ struct F1MenuBarApp: App {
 
         // Keep the menu bar scene first; this auxiliary window opens on demand.
         Window("F1 Menu Bar", id: "championship") {
-            ChampionshipWindow(store: store, preferences: preferences, coordinator: coordinator, loginItem: loginItem)
+            ChampionshipWindow(store: store, liveStore: liveStore, preferences: preferences, coordinator: coordinator, loginItem: loginItem)
                 .preferredColorScheme(preferences.colorScheme)
-                .frame(minWidth: 790, minHeight: 550)
+                .frame(minWidth: coordinator.section == .live ? 1000 : 790, minHeight: coordinator.section == .live ? 700 : 550)
         }
         .defaultSize(width: 1000, height: 720)
         .commands {

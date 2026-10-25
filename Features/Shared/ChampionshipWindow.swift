@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ChampionshipWindow: View {
     let store: SeasonStore
+    let liveStore: LiveTimingStore
     let preferences: AppPreferences
     @Bindable var coordinator: AppCoordinator
     let loginItem: LoginItemController
@@ -11,7 +12,7 @@ struct ChampionshipWindow: View {
         NavigationSplitView {
             List(selection: Binding<AppSection?>(get: { coordinator.section }, set: { if let value = $0 { coordinator.section = value } })) {
                 Section("Championship") {
-                    ForEach([AppSection.calendar, .drivers, .constructors]) { section in
+                    ForEach([AppSection.calendar, .drivers, .constructors, .live]) { section in
                         Label(section.title, systemImage: section.symbol).tag(section)
                     }
                 }
@@ -30,6 +31,7 @@ struct ChampionshipWindow: View {
                         now: store.now, timeZone: preferences.timeZone)
                     case .constructors: StandingsView(snapshot: store.visibleSnapshot, drivers: false, loading: store.isRefreshing,
                         now: store.now, timeZone: preferences.timeZone)
+                    case .live: LiveTimingView(store: liveStore, preferences: preferences)
                     case .settings: SettingsView(preferences: preferences, store: store, loginItem: loginItem)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -40,13 +42,15 @@ struct ChampionshipWindow: View {
                     Text(freshness)
                     Spacer()
                     if store.isRefreshing { ProgressView().controlSize(.mini) }
-                    Link("OpenF1", destination: URL(string: "https://openf1.org/")!)
+                    if coordinator.section == .live {
+                        Text("Personal live connection")
+                    } else { Link("OpenF1", destination: URL(string: "https://openf1.org/")!) }
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.vertical, 10)
             }.background(Color(nsColor: .windowBackgroundColor))
         }
         .navigationTitle("F1 Menu Bar")
         .toolbar {
-            if coordinator.section != .settings {
+            if coordinator.section != .settings && coordinator.section != .live {
                 ToolbarItem {
                     if store.availableSeasons.count > 1 {
                         Picker("Season", selection: Binding(get: { store.visibleSnapshot.year }, set: { store.displayYear = $0 })) {
@@ -55,9 +59,11 @@ struct ChampionshipWindow: View {
                     } else { Text("\(String(store.visibleSnapshot.year)) season").foregroundStyle(.secondary) }
                 }
             }
-            ToolbarItem {
-                Button { Task { await store.refresh(force: true) } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
-                    .disabled(store.isRefreshing).help("Refresh data (⌘R)")
+            if coordinator.section != .live {
+                ToolbarItem {
+                    Button { Task { await store.refresh(force: true) } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+                        .disabled(store.isRefreshing).help("Refresh data (⌘R)")
+                }
             }
         }
         .tint(Presentation.accent)
@@ -65,13 +71,14 @@ struct ChampionshipWindow: View {
     }
 
     private var freshness: String {
+        if coordinator.section == .live { return "Timing is separate from published standings" }
         if store.isRefreshing { return "Refreshing…" }
         let snapshot = store.visibleSnapshot
         let date: Date?
         switch coordinator.section {
         case .drivers: date = snapshot.driverContext?.updatedAt
         case .constructors: date = snapshot.constructorContext?.updatedAt
-        case .calendar, .settings: date = snapshot.scheduleUpdatedAt
+        case .calendar, .settings, .live: date = snapshot.scheduleUpdatedAt
         }
         return date.map { "Updated \(Presentation.date($0, format: "d MMM jmm", zone: preferences.timeZone))" } ?? "Waiting for published data"
     }

@@ -18,9 +18,10 @@ The initial scope is the current championship season, with automatic handling of
 | Previous races | Completed GP rows show the winning driver and constructor. A race awaiting published results displays that state instead of an invented winner. |
 | Drivers | Table with championship position, driver, constructor(s), points, and wins. |
 | Constructors | Table with championship position, constructor, points, and wins. |
+| Live timing | Optional personal connection to F1’s current session feed: positions, gaps, laps, tyres, pit counts, selected-driver details, race control, and weather. |
 | Settings | Launch at login, optional menu bar countdown, system-timezone or UTC display, and data-source information. |
 
-The panel footer offers **Full calendar**, **Standings**, **Refresh**, **Settings**, and **Quit**. Calendar and standings use one reusable regular window with Calendar, Drivers, and Constructors navigation, keeping the small panel quick to scan. Closing that window leaves the menu bar app running.
+The panel footer offers **Full calendar**, **Standings**, **Live timing**, **Refresh**, **Settings**, and **Quit**. The detail views share one reusable regular window. Closing that window leaves the menu bar app running and stops its live connection.
 
 Aim for a roughly 360–400 point panel with native spacing and typography, a restrained racing accent, clear date grouping, system light/dark appearance, keyboard navigation, and VoiceOver labels. Status must remain understandable without color. The UI shows its timezone and last successful update.
 
@@ -53,7 +54,20 @@ OpenF1 is an independent community API, not an official Formula 1 service. It do
 
 Implementation must exclude testing and explicitly cancelled races from upcoming selection, join sessions through `meeting_key`, and keep driver-number identity scoped to the season and relevant session. Championship rows may include a driver absent from the latest race roster; resolve that driver's metadata from earlier season sessions rather than dropping the row. Select a completed **Race** session explicitly for standings; `latest` could instead identify practice or qualifying. Use provider `position_current` and `points_current`; names require metadata joins. The requested points tables are required; the proposed optional wins column needs separate result aggregation or can be omitted.
 
-A later live-session request on 25 October returned HTTP 401 with an explicit global restriction, including past-session data. Free OpenF1 access alone therefore cannot guarantee calendar availability during a race. Use the Jolpica backup for this failure; immediate live classifications are not a promised feature. Respect the current free limits of 3 requests/second and 30/minute, cache requests, and distinguish a subscription-required response from a network failure. Treat scheduled session end times as schedule information, not proof of actual completion.
+A later live-session request on 25 October returned HTTP 401 with an explicit global restriction, including past-session data. Free OpenF1 access alone therefore cannot guarantee calendar availability during a race. Use the Jolpica backup for this failure; the separate live feature below does not depend on OpenF1. Respect the current free limits of 3 requests/second and 30/minute, cache requests, and distinguish a subscription-required response from a network failure. Treat scheduled session end times as schedule information, not proof of actual completion.
+
+### Personal live timing — scope added 25 October 2026
+
+Arturo authorized trying F1’s anonymous live feed locally for personal use after discussing its access and usage risks. Use the direct SignalR Core/WebSocket endpoint as an optional, experimental feature, separate from calendar, winners, and championship snapshots. This is not a supported public developer API or a promise of continued access.
+
+- Show the feed’s actual meeting, session, status, positions, gaps, lap counts/times, sectors, tyre compound/age, observed stint history, pit counts, recent race-control messages, track status, and weather when supplied.
+- Connect only while the Live timing section is visible. Stop on close, hiding, section changes, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
+- Merge sparse topic updates into the subscription snapshot. Reset on a new session or subscription, reject obsolete connections and older topic updates, and bound memory and publication frequency.
+- Show **Live** only for a Started session with a recent timestamped timing update. A subscription snapshot, ping, scheduled timestamp, or last-known position does not establish liveness. Keep finished and stale data explicit.
+- Use no account credentials, paid topics, backend, disk recordings, or telemetry sharing. Respect access denials and Retry-After, with bounded reconnects and manual retry.
+- Tyre history describes observed stints; future team strategy and exact stationary pit-stop durations are outside this scope. Provisional timing never updates GP winners or championship points.
+
+Protocol references and dated connection evidence are in `docs/DATA_SOURCES.md` and `docs/VERIFICATION.md`.
 
 ### Formula 1's official calendar
 
@@ -116,6 +130,7 @@ During the current GP weekend's date range, show **Waiting for this weekend’s 
 - **Layers:** app composition root → feature presentation models → schedule/standings repository → OpenF1/Jolpica clients and separate disk caches. Keep provider-specific DTOs and identities behind the repository boundary. Inject transport, clock, and cache so date rules and error behavior can be tested without the network.
 - **Models:** race weekend, session, GP winner, driver standing, constructor standing, and data freshness. Normalize transport DTOs at the data boundary and keep UI formatting out of domain models.
 - **Concurrency:** main-actor presentation state; one refresh coordinator; bounded HTTP work; explicit off-main cache/decoding ownership. Reject late responses from obsolete season selections or refresh generations.
+- **Live connection:** separate injected actor-owned SignalR client and main-actor presentation store. Keep a single visible connection, cancel obsolete work, and coalesce timing publication to roughly once per second.
 - **Storage:** small versioned JSON snapshots in Application Support, keyed by provider/season/endpoint; serialized atomic writes and a conservative size limit. Use `UserDefaults` for preferences. A database is unnecessary for the initial dataset.
 - **Backend:** direct HTTPS requests from the app. No account or server is required for the proposed initial feature set.
 
@@ -149,15 +164,16 @@ Keep each stage runnable when its app code exists. Do not mark the app finished 
 - Initial offline launch, offline launch with cache, malformed JSON, corrupt cache, rate limiting, incomplete pagination, and one endpoint failing while others succeed.
 - Two overlapping refreshes with out-of-order completion; a late response must not overwrite newer data or a different season.
 - Correct join of GP winner to its event; provider ranking/points preserved in both standings tables.
+- SignalR framing, full snapshots and sparse deltas, tyre age, stale/finished status, session changes, protocol failures, bounded history, and old connection callbacks after cancellation.
 - Visible panel/window checks in light/dark appearance, keyboard and VoiceOver checks, and low idle CPU/network activity measured on the Mac.
 
 Use deterministic XCTest fixtures and controllable clocks, not sleep-based asynchronous tests. Keep remote smoke tests separate from the repeatable test suite.
 
 ## 10. Later additions
 
-Optional follow-ups include session reminders, calendar export, favorite driver/team emphasis, a spoiler-hiding setting, previous-season browsing, full race classifications, and richer live timing through a separately evaluated provider.
+Optional follow-ups include session reminders, calendar export, favorite driver/team emphasis, a spoiler-hiding setting, previous-season browsing, full race classifications, and richer telemetry through a separately evaluated provider.
 
-The implementation includes the native shell, OpenF1 with a Jolpica backup, next-GP panel, full calendar, both points tables, settings, and verification scripts. Fixtures are confined to the test target; production uses the providers’ HTTPS APIs. The optional wins column is deferred as allowed in the API decision. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
+The implementation includes the native shell, OpenF1 with a Jolpica backup, next-GP panel, full calendar, both points tables, experimental personal live timing, settings, and verification scripts. Fixtures are confined to the test target; production uses the providers’ network services. The optional wins column is deferred as allowed in the API decision. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
 
 ## 11. Design exploration
 

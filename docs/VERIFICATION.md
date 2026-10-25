@@ -46,6 +46,15 @@
 - All 39 optimized core tests passed, covering separate championship updates and the notice's date boundaries. The universal Release build passed its signature and static-core packaging checks.
 - Replaced the installed app and issued its launch command. No UI inspection was performed, as requested by the user.
 
+## Experimental personal live timing
+
+- Added a separate Live timing section with positions, gaps, laps, last/best/sector times, tyre compound and age, observed stint history, pit counts, recent race control, track status, and weather. Its single anonymous connection follows section/window visibility and sleep, with an explicit manual pause. No live data is written to disk or used to calculate standings or winners.
+- All 53 optimized core tests passed. The 14 added tests cover subscription snapshots, sparse array/object updates, tyre age, null/deleted fields, missing metadata, old timestamps, session resets, fragmented UTF-8 SignalR frames, malformed/deep/oversized inputs, bounded message history, Retry-After, pre-snapshot deltas, protocol failures, cancellation generations, manual pause, and sleep/wake state.
+- The universal Release build passed signature and static-core packaging checks. Project generation, shell syntax, and whitespace checks passed. No third-party dependency was introduced.
+- Two headless connections using the production Swift client succeeded anonymously. The final 45-second check had no interruptions and returned United States Grand Prix / Race, with 22 drivers carrying lap times, tyre compounds, and pit counts, plus the latest 40 race-control messages. The initial check reported `Finalised`; the later one reported `Ends`. Neither observed fresh active-session timing. These are dated feed observations, not constants or evidence of live racing.
+- The connection check verifies negotiation, subscription, snapshot decoding, keepalive, and cancellation. Actual updates during an active session, behavior across a live session change, and recovery from a real network outage remain unverified outside deterministic fixtures.
+- Replaced `~/Applications/F1 Menu Bar.app` with the Release build and issued its launch command. No UI inspection was performed, as requested by the user.
+
 ## Native verification pending
 
 Visual inspection after the latest startup fix is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified. A successful launch command, compilation, unit tests, and the headless API check do not establish those behaviors.
