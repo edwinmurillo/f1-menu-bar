@@ -1,6 +1,6 @@
 # F1 Menu Bar — proposed project plan
 
-Prepared on 25 October 2026. Working folder: `/Users/arturo/Developer/f1-menu-bar`. The name is provisional. This document records a plan; application implementation has not started.
+Prepared on 25 October 2026. The name is provisional. Implementation was authorized later that day; this document preserves the original requirements and API research. See `README.md` and `docs/VERIFICATION.md` for current delivery status.
 
 ## 1. Product goal
 
@@ -56,7 +56,7 @@ Free access suits a schedule and published-results app; immediate live classific
 
 ### Formula 1's official calendar
 
-The official [download/sync announcement](https://www.formula1.com/en/latest/article/download-or-sync-the-f1-race-calendar-to-your-device.7mpETY062kafAl55qVnemu.7mpETY062kafAl55qVnemu.7mpETY062kafAl55qVnemu) links to [calendar.formula1.com](https://calendar.formula1.com/) and states that it covers practice, qualifying, sprints, and Grands Prix. Browser inspection confirmed an ECAL subscription interface with Google, Apple, Outlook, and other calendar options. Inspecting its Other option led to a registration form; no registration or subscription was submitted.
+The official [download/sync announcement](https://www.formula1.com/en/latest/article/download-or-sync-the-f1-race-calendar-to-your-device.7mpETY062kafAl55qVnemu) links to [calendar.formula1.com](https://calendar.formula1.com/) and states that it covers practice, qualifying, sprints, and Grands Prix. Browser inspection confirmed an ECAL subscription interface with Google, Apple, Outlook, and other calendar options. Inspecting its Other option led to a registration form; no registration or subscription was submitted.
 
 An official calendar subscription exists. A general supported public developer API covering schedules, winners, and championship points was not established by this research. Do not equate these two claims, or claim that Formula 1 has no APIs internally. Arturo's existing subscription URL has not yet been inspected. Treat it as a candidate for schedule cross-checking or a future calendar adapter once its accessible format and coverage are verified; winners and championship points still need a results source.
 
@@ -154,7 +154,7 @@ Use deterministic XCTest fixtures and controllable clocks, not sleep-based async
 
 Optional follow-ups include session reminders, calendar export, favorite driver/team emphasis, a spoiler-hiding setting, previous-season browsing, full race classifications, and richer live timing through a separately evaluated provider.
 
-The first implementation step, once requested, is Stage 1 plus a small fixture-backed next-GP panel to validate the native interaction before expanding the screens.
+The implementation includes the native shell, OpenF1 data foundation, next-GP panel, full calendar, both points tables, settings, and verification scripts. Fixtures are confined to the test target; production always uses OpenF1. The optional wins column is deferred as allowed in the API decision. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
 
 ## 11. Design exploration
 

@@ -2,17 +2,18 @@
 
 ## Purpose and current stage
 
-Build a native macOS menu bar utility for the next F1 weekend, season calendar and winners, and championship standings. `PLAN.md` is the proposed product and implementation plan. The initial task is planning only; the plan does not itself authorize application implementation.
+Build a native macOS menu bar utility for the next F1 weekend, season calendar and winners, and championship standings. Implementation was authorized on 25 October 2026. `PLAN.md` records the product requirements; `README.md` describes the delivered app and verified commands.
 
-## Planned organization
+## Organization
 
 - `App/`: composition root, menu bar scene, window routing, and app lifecycle.
 - `Features/`: NextWeekend, Calendar, Standings, and Settings SwiftUI views and presentation models.
+- `State/`: main-actor refresh coordination and observable season state, shared with core tests.
 - `Domain/`: normalized models, event selection, and time/status rules.
 - `Data/`: OpenF1 DTOs and mapping, HTTP transport, repository, and disk cache; any alternative provider stays behind the repository boundary.
 - `Tests/`: domain and repository tests plus small JSON fixtures.
-- `Scripts/`: reproducible generation/build/test/run commands once implemented.
-- `project.yml`: XcodeGen source of truth once scaffolded.
+- `Scripts/`: reproducible generation/build/test/run commands.
+- `project.yml`: XcodeGen source of truth.
 
 ## Architecture and data rules
 
@@ -32,9 +33,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 
 ## Build and verification
 
-There is no runnable app or test target yet. Do not report a successful app build, launch, or runtime test for this documentation baseline.
-
-The first implementation stage must add XcodeGen configuration and repository-owned generation, build, test, and run scripts, then replace this paragraph with commands that were actually executed. Record the full-Xcode path when command-line tools select a different developer directory. Add formatter/linter instructions only if those tools are configured.
+Use `Scripts/bootstrap.sh` to generate the Xcode project, `Scripts/build.sh` to build, `Scripts/test.sh` for deterministic core tests, and `Scripts/run.sh` to build and launch. `Scripts/check.sh` checks whitespace and project generation. Set `DEVELOPER_DIR` to a full Xcode installation; scripts discover an installed Xcode when the system selection is Command Line Tools. `project.yml` is the source of truth; generated projects and build products are ignored. There are no third-party packages, formatter, or linter dependencies.
 
 Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
 

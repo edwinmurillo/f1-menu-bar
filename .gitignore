@@ -7,6 +7,8 @@ xcuserdata/
 *.xcodeproj/
 *.xcworkspace/
 .swiftpm/
+*.profraw
+*.profdata
 .env
 .env.*
 !.env.example
