@@ -6,4 +6,5 @@ if ! xcodebuild -project F1MenuBar.xcodeproj -scheme F1MenuBar -configuration "$
   tail -100 ".build/build-$F1_CONFIGURATION.log"
   exit 1
 fi
+Scripts/check-app.sh "$F1_CONFIGURATION"
 echo "Built .build/DerivedData/Build/Products/$F1_CONFIGURATION/F1 Menu Bar.app"

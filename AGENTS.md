@@ -35,6 +35,10 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 
 Use `Scripts/bootstrap.sh` to generate the Xcode project, `Scripts/build.sh` to build, `Scripts/test.sh` for deterministic core tests, and `Scripts/run.sh` to build and launch. `Scripts/check.sh` checks whitespace and project generation. Set `DEVELOPER_DIR` to a full Xcode installation; scripts discover an installed Xcode when the system selection is Command Line Tools. `project.yml` is the source of truth; generated projects and build products are ignored. There are no third-party packages, formatter, or linter dependencies.
 
+Keep F1Core a static framework and do not embed it in the app. A dynamic ad-hoc framework can pass signature verification yet fail hardened-runtime library validation at launch. `Scripts/check-app.sh` runs after every app build to catch dynamic-link or stale-embedding regressions; actual launch remains a separate check.
+
+Keep the MenuBarExtra label a plain Label/Image/Text. Own refresh timers and system notifications in AppLifecycle, not inside the label. A TimelineView with lifecycle modifiers in that label triggered a continuous native status-button update loop during launch on macOS 27.
+
 Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
 
 For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep fake data and test controls out of release composition.

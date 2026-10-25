@@ -39,6 +39,7 @@ Scripts/run.sh Release      # Build and launch
 Scripts/test.sh             # Deterministic core tests
 Scripts/test.sh Release     # Optimized tests
 Scripts/check.sh            # Whitespace and project generation
+Scripts/check-app.sh        # Release signature and static-link packaging
 Scripts/live-smoke.sh       # Opt-in live API and disk-cache check
 ```
 
@@ -83,6 +84,6 @@ AGENTS.md     Contributor/agent guidance; also linked as Claude.md
 
 ## Distribution
 
-Local builds use ad-hoc signing and the App Sandbox with outbound network access. This is not a notarized download or App Store release. Developer ID signing, notarization, packaging, and commercial provider terms require a separate distribution pass.
+Local builds use ad-hoc signing and the App Sandbox with outbound network access. The core module is linked statically into the app, avoiding an embedded framework that ad-hoc hardened-runtime builds cannot load. Every build checks the signature and packaging. This is not a notarized download or App Store release. Developer ID signing, notarization, packaging, and commercial provider terms require a separate distribution pass.
 
 This independent app is not affiliated with Formula 1, the FIA, or any team. OpenF1 is also independent; availability and beta championship data can change.

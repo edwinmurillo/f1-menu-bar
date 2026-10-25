@@ -20,11 +20,17 @@
 - The Release Swift client also passed the live API/cache check after introducing bounded streaming response reads.
 - Shell syntax, entitlement plist syntax, project generation, and whitespace checks passed. The source scan found no embedded credentials; build products, caches, and coverage artifacts are ignored.
 
+## Installation and startup fixes
+
+- Installed the Release app in `~/Applications/F1 Menu Bar.app`.
+- Initial installed launches exposed a hardened-runtime library-validation failure: the ad-hoc dynamic F1Core framework could not load despite passing code-signature verification. F1Core is now linked statically, with no embedded core framework. The corrected universal Release build and all 24 optimized core tests passed. The build now checks for signature failures, dynamic core linkage, and stale embedded frameworks.
+- A subsequent process sample identified a continuous menu-bar status-button update loop at launch, while the custom label contained a TimelineView and lifecycle modifiers. Replaced it with a plain Label and moved startup, refresh timing, wake handling, and timezone notifications into AppLifecycle. The Release build passed; the hung process was stopped, and the corrected app was reinstalled and launched.
+
 ## Native verification pending
 
-The native computer-use tool reported that the Mac was locked and could not unlock it. App launch, menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use have not been visually or physically verified. Compilation, unit tests, and the headless API check do not establish these behaviors.
+Visual inspection after the latest startup fix is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified. A successful launch command, compilation, unit tests, and the headless API check do not establish those behaviors.
 
-Once the desktop is available, run `Scripts/run.sh Release`, inspect the menu panel and every sidebar section, confirm timezone/appearance changes, close and reopen the window, and quit from the panel. Capture native screenshots of the delivered build.
+Manual checks: open the installed app, inspect the menu panel and every sidebar section, confirm timezone/appearance changes, close and reopen the window, and quit from the panel.
 
 ## Distribution
 

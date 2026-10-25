@@ -4,6 +4,7 @@ import SwiftUI
 
 @main @MainActor
 struct F1MenuBarApp: App {
+    @NSApplicationDelegateAdaptor(AppLifecycle.self) private var lifecycle
     @State private var store: SeasonStore
     @State private var preferences = AppPreferences()
     @State private var coordinator = AppCoordinator()
@@ -13,7 +14,9 @@ struct F1MenuBarApp: App {
         let directory = URL.applicationSupportDirectory.appending(path: "F1MenuBar", directoryHint: .isDirectory)
         let cache = SnapshotCache(directory: directory)
         let repository = OpenF1Repository(client: OpenF1Client(), cache: cache)
-        _store = State(initialValue: SeasonStore(repository: repository))
+        let store = SeasonStore(repository: repository)
+        _store = State(initialValue: store)
+        lifecycle.store = store
     }
 
     var body: some Scene {
@@ -21,21 +24,7 @@ struct F1MenuBarApp: App {
             NextWeekendView(store: store, preferences: preferences, coordinator: coordinator)
                 .preferredColorScheme(preferences.colorScheme)
         } label: {
-            MenuBarLabel(store: store, preferences: preferences)
-                .task {
-                    await store.start()
-                    while !Task.isCancelled {
-                        do { try await Task.sleep(for: .seconds(60)) }
-                        catch { break }
-                        await store.tick()
-                    }
-                }
-                .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didWakeNotification)) { _ in
-                    Task { await store.tick() }
-                }
-                .onReceive(NotificationCenter.default.publisher(for: NSNotification.Name.NSSystemTimeZoneDidChange)) { _ in
-                    Task { await store.tick() }
-                }
+            Label(menuBarTitle, systemImage: "flag.checkered")
         }
         .menuBarExtraStyle(.window)
 
@@ -55,22 +44,12 @@ struct F1MenuBarApp: App {
             }
         }
     }
-}
 
-private struct MenuBarLabel: View {
-    let store: SeasonStore
-    let preferences: AppPreferences
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            HStack(spacing: 5) {
-                Image(systemName: "flag.checkered")
-                if preferences.showCountdown, let weekend = store.featured,
-                   let session = store.policy.nextSession(in: weekend, now: context.date), let start = session.start {
-                    Text("\(Presentation.shortSession(session.name)) \(Presentation.countdown(until: start, now: context.date))")
-                        .monospacedDigit()
-                }
-            }
-            .accessibilityLabel("F1 Menu Bar. Open the next Grand Prix schedule")
+    private var menuBarTitle: String {
+        guard preferences.showCountdown, let weekend = store.featured,
+              let session = store.policy.nextSession(in: weekend, now: store.now), let start = session.start else {
+            return "F1"
         }
+        return "\(Presentation.shortSession(session.name)) \(Presentation.countdown(until: start, now: store.now))"
     }
 }

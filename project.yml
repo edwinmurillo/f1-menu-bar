@@ -15,7 +15,7 @@ settings:
     GENERATE_INFOPLIST_FILE: YES
 targets:
   F1Core:
-    type: framework
+    type: framework.static
     platform: macOS
     sources:
       - Domain
@@ -33,6 +33,7 @@ targets:
       - Features
     dependencies:
       - target: F1Core
+        embed: false
     settings:
       base:
         PRODUCT_NAME: F1 Menu Bar
@@ -54,6 +55,7 @@ targets:
       - Tests
     dependencies:
       - target: F1Core
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.murilloarturo.f1menubar.tests
