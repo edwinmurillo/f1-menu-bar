@@ -1,75 +1,101 @@
+![F1 Menu Bar — Race schedules and standings for macOS](docs/images/banner.png)
+
 # F1 Menu Bar
 
-A native macOS menu bar app for the next Formula 1 weekend, the season calendar, GP winners, and championship points. Swift 6 and SwiftUI; no account, API key, backend, or third-party package dependency.
+**Your next Formula 1 weekend, right in the Mac menu bar.**
 
-**Status:** initial implementation. The working title is provisional. See [verification notes](docs/VERIFICATION.md) for build, test, integration, and native UI verification status.
+See practice, qualifying, sprint, and race times in your timezone. Browse the season calendar, check who won each Grand Prix, and follow driver and constructor points—all from the checkered flag in your menu bar.
+
+![macOS 14 or later](https://img.shields.io/badge/macOS-14%2B-202328?style=flat-square)
+![Swift 6](https://img.shields.io/badge/Swift-6-DE4033?style=flat-square)
+![SwiftUI](https://img.shields.io/badge/UI-SwiftUI-202328?style=flat-square)
+
+Built natively with Swift and SwiftUI. No account, API key, or backend setup required.
+
+[Get started](#get-started) · [Features](#features) · [Data sources](#data-sources) · [Development](#development)
 
 ## Features
 
-- Next GP with practice, qualifying, race, and sprint sessions when published.
-- Optional menu bar countdown; system timezone or UTC.
-- Full calendar with current, next, future, raced, cancelled, changed-schedule, and results-pending states.
-- Published GP winners and teams; sprint results never become GP winners.
-- Every returned driver and constructor, preserving provider positions and decimal points.
-- System/light/dark appearance, optional launch at login, manual refresh, and wake/year-boundary handling.
-- Cached data and independent section updates; a failed standings request does not erase a working calendar.
-- Automatic Jolpica backup when OpenF1 is unavailable, including its live-session access restriction.
+| At a glance | What you get |
+| --- | --- |
+| **Next race weekend** | The full session schedule, including sprint qualifying and sprints when scheduled, plus an optional menu bar countdown. |
+| **Season calendar** | Past, current, next, and future weekends, with published GP winners and clear states for pending results, cancellations, or schedule changes when reported. |
+| **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. |
+| **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |
+| **Mac preferences** | System, light, or dark appearance; optional launch at login; and manual refresh. |
+| **Saved data and a backup source** | Cached calendars remain available offline. Jolpica takes over when OpenF1 is unavailable, including during its live-session access restrictions. |
 
-The first version provides schedules and published results, not live timing. The optional wins column from the concept is omitted; points come directly from the active provider rather than locally reconstructed scoring.
+This app shows schedules and published results. A scheduled start time does not mean a session is confirmed live or finished, and a winner appears only after a GP result is published.
 
-## Requirements
+## Get started
 
-- macOS 14 or later.
-- Full Xcode with Swift 6. Verified with Xcode 27.1 RC (`27A9275`) and Swift 6.4.
-- [XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.45 or later; verified with 2.45.3.
+**Current stage:** early release, built from source. There is no notarized download or App Store release yet. Build and data checks are recorded in the [verification notes](docs/VERIFICATION.md), alongside the remaining manual UI checks.
+
+You’ll need:
+
+- **macOS 14 or later.**
+- **Full Xcode with Swift 6**, rather than Command Line Tools alone.
+- **[XcodeGen](https://github.com/yonaskolb/XcodeGen) 2.45 or later.**
 
 ```sh
 brew install xcodegen
+mkdir -p ~/Developer
+git clone https://github.com/murilloarturo/f1-menu-bar.git ~/Developer/f1-menu-bar
 cd ~/Developer/f1-menu-bar
-Scripts/bootstrap.sh
-Scripts/run.sh
+Scripts/run.sh Release
 ```
 
-Click the checkered flag in the menu bar. **Full calendar** and **Standings** open the regular window. Closing that window keeps the app running; use the panel’s power button to quit.
+The run script generates the Xcode project, builds the app, and launches it. Look for the **checkered flag in the menu bar**.
 
-## Development commands
+To keep it in Applications, quit the app and copy this bundle into your Applications folder, then open that copy:
+
+```text
+.build/DerivedData/Build/Products/Release/F1 Menu Bar.app
+```
+
+### Using the app
+
+1. Click the checkered flag to see the next GP weekend and its session times.
+2. Choose **Full calendar** to browse weekends and published winners.
+3. Choose **Standings** to open driver and constructor points.
+4. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
+
+Closing the detail window keeps the menu bar app running. Use the panel’s power button to quit.
+
+## Data sources
+
+[OpenF1](https://openf1.org/docs/) is the primary source. [Jolpica](https://github.com/jolpica/jolpica-f1) supplies a complete backup snapshot when OpenF1 is unavailable. The active provider is shown in the app; records and caches from different providers are kept separate.
+
+The current weekend stays in view through its race. Published results and standings can arrive at different times, so each points table identifies the GP associated with its snapshot. Cached data stays available when a refresh fails.
+
+See [data sources and freshness](docs/DATA_SOURCES.md) for selection rules, refresh intervals, caching, provider limitations, and attribution.
+
+## Development
+
+The project uses **Swift 6**, **SwiftUI**, **MenuBarExtra**, and **XCTest**, with no third-party packages. `project.yml` is the XcodeGen source of truth; generated Xcode projects and build products are ignored.
 
 ```sh
+Scripts/bootstrap.sh        # Generate the Xcode project
 Scripts/build.sh Release    # Build the locally signed app
 Scripts/run.sh Release      # Build and launch
 Scripts/test.sh             # Deterministic core tests
-Scripts/test.sh Release     # Optimized tests
+Scripts/test.sh Release     # Optimized core tests
 Scripts/check.sh            # Whitespace and project generation
 Scripts/check-app.sh        # Release signature and static-link packaging
 Scripts/live-smoke.sh       # Opt-in live API and disk-cache check
 ```
 
-Products: `.build/DerivedData/Build/Products/<configuration>/F1 Menu Bar.app`. Tests use separate `.build/TestProducts` output; test-only module visibility is enabled by the test command, not the shipping build. Logs are in `.build/`.
-
-Scripts honor `DEVELOPER_DIR` and locate full Xcode if the system selects Command Line Tools. They do not change the global developer-directory setting. To choose an installation:
+Scripts honor `DEVELOPER_DIR` and find full Xcode when the system selects Command Line Tools. They do not change the global developer-directory setting. To choose an installation:
 
 ```sh
 export DEVELOPER_DIR="/Applications/Xcode.app/Contents/Developer"
 Scripts/build.sh
 ```
 
-`project.yml` is the source of truth. Build/test scripts regenerate automatically. Generated projects are not committed. There are no additional formatter/linter dependencies.
+Builds are written to `.build/DerivedData/Build/Products/<configuration>/F1 Menu Bar.app`. Tests use separate `.build/TestProducts` output; test-only module visibility is enabled by the test command. Logs are in `.build/`. There are no additional formatter or linter dependencies.
 
-## Data and behavior
-
-The independent [OpenF1 API](https://openf1.org/docs/) is the primary source for sessions, classifications, and beta championship tables. OpenF1 can block **all unauthenticated requests during a live session**, including the calendar. The app then uses [Jolpica](https://github.com/jolpica/jolpica-f1) for a complete calendar, GP winners, and championship snapshot. The active source is shown in the panel, calendar, standings, and Settings.
-
-Provider snapshots and caches remain separate; race IDs, results, and points are never merged across providers. OpenF1 joins use the season and session; missing driver metadata is resolved from earlier sessions in the same season. Jolpica joins use season and round with event metadata checks. Standings use an explicit round with a published GP result, including fallback to an earlier completed round when necessary. Missing driver numbers, non-numeric classifications, decimal points, and deductions are preserved. Jolpica does not supply session end times or cancellation flags; the app does not invent them.
-
-The current weekend stays selected through its race. A published GP classification advances it. If no result appears within six hours of the scheduled start, focus advances while the previous GP remains **Results pending**. Scheduled start/end times alone never establish a winner or confirmed completion.
-
-After the season ends, the app checks the following calendar. The completed season stays available when the next one is unpublished. Each championship table identifies its season and the race associated with its snapshot.
-
-Requests use an app User-Agent, a rate below 30 requests/minute per provider, bounded responses, and `Retry-After` handling. Jolpica requests use at most five pages of 100 rows per endpoint and reject incomplete pagination. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
-
-Versioned JSON snapshots are written atomically in the app’s sandboxed Application Support directory, under `F1MenuBar/openf1-v1` and `F1MenuBar/jolpica-v1`. The newest available provider cache can restore the app offline. Preferences use `UserDefaults`. Missing, corrupt, and unavailable data remain distinct. The smoke script uses `.build/live-smoke-cache`, separate from app data.
-
-## Project structure
+<details>
+<summary>Project structure and local packaging</summary>
 
 ```text
 App/          Composition, routing, preferences, login items, assets
@@ -79,14 +105,24 @@ Domain/       Models and time/status policies
 Data/         OpenF1/Jolpica adapters, fallback, HTTP transport, disk cache
 Tests/        Fixtures, failures, date boundaries, async interleavings
 Scripts/      Generate, build, test, run, live verification
-docs/         Verification evidence and remaining manual checks
+docs/         Data notes, verification evidence, banner, and artwork prompt
 project.yml   XcodeGen source of truth
 PLAN.md       Product plan and data-source research
-AGENTS.md     Contributor/agent guidance; also linked as Claude.md
+AGENTS.md     Development guide; also linked as Claude.md
 ```
 
-## Distribution
+Local builds use ad-hoc signing and the App Sandbox with outbound network access. F1Core is linked statically to avoid an embedded framework that ad-hoc hardened-runtime builds cannot load. Every build checks the signature and packaging. Developer ID signing, notarization, and release packaging remain separate distribution work.
 
-Local builds use ad-hoc signing and the App Sandbox with outbound network access. The core module is linked statically into the app, avoiding an embedded framework that ad-hoc hardened-runtime builds cannot load. Every build checks the signature and packaging. This is not a notarized download or App Store release. Developer ID signing, notarization, packaging, and commercial provider terms require a separate distribution pass.
+</details>
 
-This independent app is not affiliated with Formula 1, the FIA, or any team. Both data providers are independent; availability and beta championship data can change. Jolpica data is used under [CC BY-NC-SA 4.0](https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md); commercial distribution requires a separate arrangement with that provider.
+## Contributing
+
+Bug reports and focused improvements are welcome. For a data issue, include the season, affected GP or standings table, and the provider shown in the app. Read [AGENTS.md](AGENTS.md) before changing code; the [product plan](PLAN.md) and [verification notes](docs/VERIFICATION.md) document scope and current limitations.
+
+The banner’s reusable image-generation prompt is in [docs/BANNER_PROMPT.md](docs/BANNER_PROMPT.md).
+
+## License and attribution
+
+A source-code license has not been selected yet; this repository currently has no `LICENSE` file. Data-provider terms are documented separately in the [data notes](docs/DATA_SOURCES.md#provider-terms).
+
+F1 Menu Bar is an independent project, not affiliated with Formula 1, the FIA, or any team.
