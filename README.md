@@ -11,7 +11,7 @@ Read [PLAN.md](PLAN.md) for the proposed experience, verified API choice, implem
 - Swift 6 and SwiftUI, with a macOS 14 minimum deployment target.
 - `MenuBarExtra` for the status bar panel; a regular window for Calendar, Drivers, and Constructors.
 - XcodeGen as the project source of truth; Swift Package Manager if dependencies become necessary.
-- Jolpica F1 over HTTPS using `URLSession`, with a small JSON disk cache and `UserDefaults` for preferences.
+- OpenF1 over HTTPS using `URLSession`, with a small JSON disk cache and `UserDefaults` for preferences. Jolpica remains a verified alternative; see the API comparison in the plan.
 - XCTest with injected time, fixture responses, and deterministic asynchronous tests.
 
 ## Project contents
@@ -29,4 +29,4 @@ Build, run, test, and formatting commands are not available yet. The first imple
 
 ## Distribution
 
-Start with a local macOS app. Packaging, signing, notarization, repository visibility, and the final name will be settled when distribution is in scope. Jolpica's current terms provide free non-commercial access and direct commercial users to contact the provider; see the linked research in [PLAN.md](PLAN.md).
+Start with a local macOS app. Packaging, signing, notarization, repository visibility, and the final name will be settled when distribution is in scope. OpenF1's free historical tier is intended for personal use; live access is paid. The plan includes the current OpenF1, Jolpica, and official calendar findings and the remaining integration checks.

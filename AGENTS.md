@@ -9,7 +9,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 - `App/`: composition root, menu bar scene, window routing, and app lifecycle.
 - `Features/`: NextWeekend, Calendar, Standings, and Settings SwiftUI views and presentation models.
 - `Domain/`: normalized models, event selection, and time/status rules.
-- `Data/`: Jolpica DTOs and mapping, HTTP transport, repository, and disk cache.
+- `Data/`: OpenF1 DTOs and mapping, HTTP transport, repository, and disk cache; any alternative provider stays behind the repository boundary.
 - `Tests/`: domain and repository tests plus small JSON fixtures.
 - `Scripts/`: reproducible generation/build/test/run commands once implemented.
 - `project.yml`: XcodeGen source of truth once scaffolded.
@@ -25,6 +25,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 - Distinguish an empty valid response from transport, decoding, or cache errors. Load each screen section independently.
 - Compare absolute timestamps; present them in the current system timezone by default. A missing time stays unknown.
 - Keep GP and sprint results separate. Only a published GP result establishes its winner. Elapsed time alone does not establish a completed race or a live session.
+- OpenF1 includes testing and cancelled sessions; exclude these from upcoming GP selection. Resolve championship snapshots using an explicit completed Race session. Scope driver-number joins to season/session and resolve roster changes within the season without dropping standings rows. Beta endpoint data and scheduled end times require explicit validation.
 - Preserve provider championship positions and points, including ties, deductions, and decimal points. Do not recreate the scoring rules locally.
 - Set an identifiable application/version `User-Agent`, honor `Retry-After`, bound retries and pagination, and cache responses.
 - Never embed secrets. The planned API calls require no credentials. Verify current provider documentation before changing API assumptions.
