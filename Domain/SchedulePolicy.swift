@@ -27,7 +27,19 @@ public struct SchedulePolicy: Sendable {
 
     /// An ongoing weekend is a date-range state, not evidence of a live session.
     public func isOngoing(_ weekend: RaceWeekend, now: Date, timeZone: TimeZone) -> Bool {
-        guard !weekend.isCancelled, !weekend.isMissingFromSchedule, weekend.winner == nil,
+        weekend.winner == nil && isWithinWeekendDates(weekend, now: now, timeZone: timeZone)
+    }
+
+    /// Standings may still be pending after a GP winner has been published.
+    public func isAwaitingStandings(in weekends: [RaceWeekend], context: ChampionshipContext?, now: Date, timeZone: TimeZone) -> Bool {
+        weekends.contains { weekend in
+            isWithinWeekendDates(weekend, now: now, timeZone: timeZone) &&
+            context?.sessionID != weekend.grandPrix?.id
+        }
+    }
+
+    private func isWithinWeekendDates(_ weekend: RaceWeekend, now: Date, timeZone: TimeZone) -> Bool {
+        guard !weekend.isCancelled, !weekend.isMissingFromSchedule,
               let race = weekend.grandPrix, !race.isCancelled, let raceStart = race.start,
               let first = weekend.activeSessions.compactMap(\.start).min() ?? weekend.start else { return false }
         var calendar = Calendar(identifier: .gregorian)

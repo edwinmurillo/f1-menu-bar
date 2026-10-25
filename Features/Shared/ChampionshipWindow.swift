@@ -26,8 +26,10 @@ struct ChampionshipWindow: View {
                 Group {
                     switch coordinator.section {
                     case .calendar: CalendarView(store: store, preferences: preferences, coordinator: coordinator)
-                    case .drivers: StandingsView(snapshot: store.visibleSnapshot, drivers: true, loading: store.isRefreshing)
-                    case .constructors: StandingsView(snapshot: store.visibleSnapshot, drivers: false, loading: store.isRefreshing)
+                    case .drivers: StandingsView(snapshot: store.visibleSnapshot, drivers: true, loading: store.isRefreshing,
+                        now: store.now, timeZone: preferences.timeZone)
+                    case .constructors: StandingsView(snapshot: store.visibleSnapshot, drivers: false, loading: store.isRefreshing,
+                        now: store.now, timeZone: preferences.timeZone)
                     case .settings: SettingsView(preferences: preferences, store: store, loginItem: loginItem)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)

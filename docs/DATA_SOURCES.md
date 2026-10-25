@@ -12,6 +12,8 @@ The featured weekend is labeled **Ongoing Grand Prix** in the menu bar panel whe
 
 After the season ends, the app checks the following calendar. The completed season stays available when the next one is unpublished. Each championship table identifies its season and the race associated with its snapshot.
 
+During a GP weekend's dates in the selected display timezone, each standings table shows **Waiting for this weekend’s results** until its championship snapshot includes that GP. A published winner alone does not remove this message: driver and constructor standings can arrive separately. The message is hidden outside the weekend's dates and for cancelled, removed, or unknown-date events.
+
 Requests use an app User-Agent, a rate below 30 requests/minute per provider, bounded responses, and `Retry-After` handling. Jolpica requests use at most five pages of 100 rows per endpoint and reject incomplete pagination. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
 
 Versioned JSON snapshots are written atomically in the app’s sandboxed Application Support directory, under `F1MenuBar/openf1-v1` and `F1MenuBar/jolpica-v1`. The newest available provider cache can restore the app offline. Preferences use `UserDefaults`. Missing, corrupt, and unavailable data remain distinct. The smoke script uses `.build/live-smoke-cache`, separate from app data.

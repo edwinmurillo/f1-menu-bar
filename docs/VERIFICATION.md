@@ -40,6 +40,12 @@
 - All 37 optimized core tests passed. New tests cover first-day midnight, the full race date, the next midnight across daylight-saving changes, Saturday races in different timezones, completed/cancelled/removed weekends, and unknown race dates.
 - The universal Release build passed the signature and static-core packaging checks. The installed app was replaced and its launch command issued. Visual inspection remains with the user.
 
+## Standings weekend notice
+
+- Driver and constructor standings show **Waiting for this weekend’s results** during the GP weekend's dates in the selected timezone. Each message disappears when that table includes the GP, even if the other table is still pending. A published winner alone does not establish updated points.
+- All 39 optimized core tests passed, covering separate championship updates and the notice's date boundaries. The universal Release build passed its signature and static-core packaging checks.
+- Replaced the installed app and issued its launch command. No UI inspection was performed, as requested by the user.
+
 ## Native verification pending
 
 Visual inspection after the latest startup fix is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified. A successful launch command, compilation, unit tests, and the headless API check do not establish those behaviors.

@@ -107,6 +107,8 @@ Preserve the championship order and points supplied by the API, including ties a
 
 The season tables show every returned driver/team and scroll as needed. Driver rows can retain multiple constructor associations if a driver changes teams. No driver count, team count, team color, or championship leader is hardcoded.
 
+During the current GP weekend's date range, show **Waiting for this weekend’s results** below each standings header until that table's snapshot includes the GP. Use the selected display timezone and the inclusive first-session/race dates. A GP winner and the two championship tables can update independently; hide the message separately for each updated table. Hide it outside the date range and for cancelled, removed, or unknown-date weekends.
+
 ## 6. Technical approach
 
 - **Platform:** native Swift 6 and SwiftUI; proposed minimum macOS 14. Use `MenuBarExtra` with window style, a regular detail window, and `LSUIElement` for the menu bar app lifecycle. Apple's [MenuBarExtra documentation](https://developer.apple.com/documentation/swiftui/menubarextra) covers this presentation model. Verify focus, reopening, and settings behavior on the actual Mac.

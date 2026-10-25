@@ -5,12 +5,18 @@ struct StandingsView: View {
     let snapshot: SeasonSnapshot
     let drivers: Bool
     let loading: Bool
+    let now: Date
+    let timeZone: TimeZone
     private var context: ChampionshipContext? { drivers ? snapshot.driverContext : snapshot.constructorContext }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             SectionHeader(title: drivers ? "Driver standings" : "Constructor standings",
                 subtitle: "\(String(snapshot.year)) championship" + (context.map { " · After \($0.meetingName)" } ?? ""))
+            if SchedulePolicy().isAwaitingStandings(in: snapshot.weekends, context: context, now: now, timeZone: timeZone) {
+                Label("Waiting for this weekend’s results", systemImage: "clock")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
             if let issue = snapshot.issues[drivers ? .drivers : .constructors] { IssueBanner(message: issue) }
             if drivers && !snapshot.drivers.isEmpty {
                 Table(snapshot.drivers) {

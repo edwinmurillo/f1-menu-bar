@@ -120,6 +120,39 @@ final class SchedulePolicyTests: XCTestCase {
         XCTAssertFalse(policy.isOngoing(unknown, now: raceStart, timeZone: zone))
     }
 
+    func testEachStandingsTableWaitsForItsOwnGrandPrixSnapshotEvenAfterWinnerIsPublished() throws {
+        let zone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let current = weekend(winner: true)
+        var snapshot = SeasonSnapshot(year: current.year)
+        snapshot.weekends = [current]
+        snapshot.constructorContext = ChampionshipContext(sessionID: -1, meetingName: "Previous GP", updatedAt: raceStart)
+
+        XCTAssertTrue(policy.isAwaitingStandings(in: snapshot.weekends, context: snapshot.driverContext, now: raceStart, timeZone: zone))
+        XCTAssertTrue(policy.isAwaitingStandings(in: snapshot.weekends, context: snapshot.constructorContext, now: raceStart, timeZone: zone))
+
+        snapshot.driverContext = ChampionshipContext(sessionID: try XCTUnwrap(current.grandPrix).id,
+            meetingName: current.name, updatedAt: raceStart)
+        XCTAssertFalse(policy.isAwaitingStandings(in: snapshot.weekends, context: snapshot.driverContext, now: raceStart, timeZone: zone))
+        XCTAssertTrue(policy.isAwaitingStandings(in: snapshot.weekends, context: snapshot.constructorContext, now: raceStart, timeZone: zone))
+
+        snapshot.constructorContext = snapshot.driverContext
+        XCTAssertFalse(policy.isAwaitingStandings(in: snapshot.weekends, context: snapshot.constructorContext, now: raceStart, timeZone: zone))
+    }
+
+    func testStandingsWaitOnlyDuringWeekendDatesInSelectedTimezone() throws {
+        let madrid = try XCTUnwrap(TimeZone(identifier: "Europe/Madrid"))
+        let utc = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let current = try datedWeekend(first: "2026-10-23T16:30:00Z", race: "2026-10-25T20:00:00Z")
+        let firstMidnight = try instant("2026-10-22T22:00:00Z")
+        let end = try instant("2026-10-25T23:00:00Z")
+        XCTAssertFalse(policy.isAwaitingStandings(in: [current], context: nil, now: firstMidnight.addingTimeInterval(-1), timeZone: madrid))
+        XCTAssertTrue(policy.isAwaitingStandings(in: [current], context: nil, now: firstMidnight, timeZone: madrid))
+        XCTAssertFalse(policy.isAwaitingStandings(in: [current], context: nil, now: firstMidnight, timeZone: utc))
+        XCTAssertTrue(policy.isAwaitingStandings(in: [current], context: nil, now: end.addingTimeInterval(-1), timeZone: madrid))
+        XCTAssertFalse(policy.isAwaitingStandings(in: [current], context: nil, now: end, timeZone: madrid))
+        XCTAssertFalse(policy.isAwaitingStandings(in: [], context: nil, now: firstMidnight, timeZone: madrid))
+    }
+
     private func datedWeekend(first: String, race: String) throws -> RaceWeekend {
         RaceWeekend(id: 1, year: 2026, name: "Fixture GP", sessions: [
             RaceSession(id: 1, name: "Practice 1", start: try instant(first)),
