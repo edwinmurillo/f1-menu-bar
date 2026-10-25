@@ -18,7 +18,7 @@ Built natively with Swift and SwiftUI. No account, API key, or backend setup req
 
 | At a glance | What you get |
 | --- | --- |
-| **Next race weekend** | The full session schedule, including sprint qualifying and sprints when scheduled, plus an optional menu bar countdown. |
+| **Next race weekend** | The full session schedule, including sprint qualifying and sprints when scheduled, plus an optional menu bar countdown. The panel shows **Ongoing Grand Prix** during the featured weekend’s dates. |
 | **Season calendar** | Past, current, next, and future weekends, with published GP winners and clear states for pending results, cancellations, or schedule changes when reported. |
 | **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. |
 | **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |

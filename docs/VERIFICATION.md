@@ -34,6 +34,12 @@
 - The production Swift repository selected Jolpica and decoded 23 weekends, 17 published GP winners, 23 drivers, and 11 constructors, then round-tripped its cache. The featured weekend was United States Grand Prix and both points tables were scoped to the published Singapore GP. These are dated API observations, not constants or visual app verification.
 - Replaced the installed bundle with the Release fallback build and issued its launch command. No UI inspection was performed, as requested by the user.
 
+## Ongoing weekend heading
+
+- The menu bar panel now shows **Ongoing Grand Prix** during the featured weekend's dates in the selected display timezone, including the time before its first practice on that date and gaps between sessions. It keeps the session schedule and countdown visible. This is a weekend date label, not a live-session signal.
+- All 37 optimized core tests passed. New tests cover first-day midnight, the full race date, the next midnight across daylight-saving changes, Saturday races in different timezones, completed/cancelled/removed weekends, and unknown race dates.
+- The universal Release build passed the signature and static-core packaging checks. The installed app was replaced and its launch command issued. Visual inspection remains with the user.
+
 ## Native verification pending
 
 Visual inspection after the latest startup fix is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified. A successful launch command, compilation, unit tests, and the headless API check do not establish those behaviors.

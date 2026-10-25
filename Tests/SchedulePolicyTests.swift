@@ -71,4 +71,63 @@ final class SchedulePolicyTests: XCTestCase {
         XCTAssertFalse(policy.shouldCheckNextSeason(snapshot, now: raceStart))
         XCTAssertTrue(policy.shouldCheckNextSeason(snapshot, now: raceStart.addingTimeInterval(21600)))
     }
+
+    func testOngoingBeginsAtMidnightOnFirstSessionDateAndIncludesGaps() throws {
+        let madrid = try XCTUnwrap(TimeZone(identifier: "Europe/Madrid"))
+        let current = try datedWeekend(first: "2026-10-23T16:30:00Z", race: "2026-10-25T20:00:00Z")
+        let firstMidnight = try instant("2026-10-22T22:00:00Z")
+        XCTAssertFalse(policy.isOngoing(current, now: firstMidnight.addingTimeInterval(-1), timeZone: madrid))
+        XCTAssertTrue(policy.isOngoing(current, now: firstMidnight, timeZone: madrid))
+        XCTAssertTrue(policy.isOngoing(current, now: try instant("2026-10-24T10:00:00Z"), timeZone: madrid))
+    }
+
+    func testOngoingIncludesRaceDayAndEndsAtNextMidnightAcrossDST() throws {
+        let madrid = try XCTUnwrap(TimeZone(identifier: "Europe/Madrid"))
+        let current = try datedWeekend(first: "2026-10-23T16:30:00Z", race: "2026-10-25T20:00:00Z")
+        // Madrid changes from UTC+2 to UTC+1 during this weekend.
+        let end = try instant("2026-10-25T23:00:00Z")
+        XCTAssertTrue(policy.isOngoing(current, now: try instant("2026-10-25T00:30:00Z"), timeZone: madrid))
+        XCTAssertTrue(policy.isOngoing(current, now: try instant("2026-10-25T01:30:00Z"), timeZone: madrid))
+        XCTAssertTrue(policy.isOngoing(current, now: end.addingTimeInterval(-1), timeZone: madrid))
+        XCTAssertFalse(policy.isOngoing(current, now: end, timeZone: madrid))
+    }
+
+    func testOngoingUsesSelectedTimezoneForSaturdayRace() throws {
+        let losAngeles = try XCTUnwrap(TimeZone(identifier: "America/Los_Angeles"))
+        let utc = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let current = try datedWeekend(first: "2026-11-20T00:30:00Z", race: "2026-11-22T04:00:00Z")
+        let sundayInLosAngeles = try instant("2026-11-22T08:00:00Z")
+        XCTAssertFalse(policy.isOngoing(current, now: sundayInLosAngeles, timeZone: losAngeles))
+        XCTAssertTrue(policy.isOngoing(current, now: sundayInLosAngeles, timeZone: utc))
+    }
+
+    func testCompletedCancelledAndRemovedWeekendsAreNotOngoing() throws {
+        let zone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        var removed = weekend(); removed.isMissingFromSchedule = true
+        var cancelledRace = weekend()
+        cancelledRace.sessions[cancelledRace.sessions.count - 1] = RaceSession(id: 12, name: "Race", start: raceStart, isCancelled: true)
+        for value in [weekend(winner: true), weekend(cancelled: true), removed, cancelledRace] {
+            XCTAssertFalse(policy.isOngoing(value, now: raceStart, timeZone: zone))
+        }
+    }
+
+    func testMissingRaceDateCannotEstablishAnOngoingWeekend() throws {
+        let zone = try XCTUnwrap(TimeZone(secondsFromGMT: 0))
+        let unknown = RaceWeekend(id: 1, year: 2026, name: "Time TBC", sessions: [
+            RaceSession(id: 1, name: "Practice 1", start: raceStart.addingTimeInterval(-86400)),
+            RaceSession(id: 2, name: "Race", start: nil)
+        ])
+        XCTAssertFalse(policy.isOngoing(unknown, now: raceStart, timeZone: zone))
+    }
+
+    private func datedWeekend(first: String, race: String) throws -> RaceWeekend {
+        RaceWeekend(id: 1, year: 2026, name: "Fixture GP", sessions: [
+            RaceSession(id: 1, name: "Practice 1", start: try instant(first)),
+            RaceSession(id: 2, name: "Race", start: try instant(race))
+        ])
+    }
+
+    private func instant(_ value: String) throws -> Date {
+        try XCTUnwrap(ISO8601DateFormatter().date(from: value))
+    }
 }

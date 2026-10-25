@@ -70,11 +70,15 @@ struct NextWeekendView: View {
     }
 
     private func weekendContent(_ weekend: RaceWeekend) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
+        let isOngoing = store.policy.isOngoing(weekend, now: store.now, timeZone: preferences.timeZone)
+        return VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 7) {
                     Capsule().fill(Presentation.accent).frame(width: 18, height: 4)
-                    Text("NEXT GRAND PRIX").font(.system(size: 11, weight: .semibold)).tracking(1.3).foregroundStyle(.secondary)
+                    Text(isOngoing ? "ONGOING GRAND PRIX" : "NEXT GRAND PRIX")
+                        .font(.system(size: 11, weight: .semibold)).tracking(1.3)
+                        .foregroundStyle(isOngoing ? Presentation.accent : Color.secondary)
+                        .accessibilityLabel(isOngoing ? "Ongoing Grand Prix weekend" : "Next Grand Prix")
                     Spacer()
                     if weekend.hasSprint { Text("SPRINT").font(.caption2.weight(.semibold)).foregroundStyle(Presentation.accent) }
                 }

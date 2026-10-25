@@ -25,6 +25,19 @@ public struct SchedulePolicy: Sendable {
             .min { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
     }
 
+    /// An ongoing weekend is a date-range state, not evidence of a live session.
+    public func isOngoing(_ weekend: RaceWeekend, now: Date, timeZone: TimeZone) -> Bool {
+        guard !weekend.isCancelled, !weekend.isMissingFromSchedule, weekend.winner == nil,
+              let race = weekend.grandPrix, !race.isCancelled, let raceStart = race.start,
+              let first = weekend.activeSessions.compactMap(\.start).min() ?? weekend.start else { return false }
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let firstDay = calendar.startOfDay(for: first)
+        let raceDay = calendar.startOfDay(for: raceStart)
+        guard let followingDay = calendar.date(byAdding: .day, value: 1, to: raceDay) else { return false }
+        return now >= firstDay && now < followingDay
+    }
+
     public func status(of weekend: RaceWeekend, in weekends: [RaceWeekend], now: Date) -> WeekendStatus {
         if weekend.isCancelled { return .cancelled }
         if weekend.isMissingFromSchedule { return .unavailable }

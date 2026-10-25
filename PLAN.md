@@ -30,6 +30,7 @@ Aim for a roughly 360–400 point panel with native spacing and typography, a re
 - Sprint format: Practice 1, Sprint Qualifying, Sprint, Qualifying, Grand Prix, using the actual chronological order returned by the provider.
 - Read session presence and timestamps from the API. Never assume a particular venue is always a sprint weekend, that every race is on Sunday, or that every session has an announced time.
 - Retain sessions already started within the displayed weekend so the whole schedule stays understandable. Label them by scheduled time; do not imply a confirmed finish from a start timestamp alone.
+- In the menu bar panel, label the featured GP **Ongoing Grand Prix** when today falls between its first scheduled session date and race date, inclusive, in the selected display timezone. Use **Next Grand Prix** before that range. This describes the weekend, including gaps between sessions; it does not claim that a session is live. Published GP results still advance the panel to the next weekend under the selection policy below.
 
 ## 3. API decision and evidence
 

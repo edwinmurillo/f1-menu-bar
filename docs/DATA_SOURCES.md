@@ -8,6 +8,8 @@ Provider snapshots and caches remain separate; race IDs, results, and points are
 
 The current weekend stays selected through its race. A published GP classification advances it. If no result appears within six hours of the scheduled start, focus advances while the previous GP remains **Results pending**. Scheduled start/end times alone never establish a winner or confirmed completion.
 
+The featured weekend is labeled **Ongoing Grand Prix** in the menu bar panel when today falls between its first scheduled session date and race date, inclusive, in the selected display timezone. This includes gaps between sessions and does not claim live timing. Completed, cancelled, removed, and unknown-date weekends do not receive this label.
+
 After the season ends, the app checks the following calendar. The completed season stays available when the next one is unpublished. Each championship table identifies its season and the race associated with its snapshot.
 
 Requests use an app User-Agent, a rate below 30 requests/minute per provider, bounded responses, and `Retry-After` handling. Jolpica requests use at most five pages of 100 rows per endpoint and reject incomplete pagination. Refreshes coalesce: normally six hours away from a weekend, 30 minutes near/during it, and five minutes while awaiting a race result. Countdown updates do not fetch data.
