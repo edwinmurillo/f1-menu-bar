@@ -65,6 +65,8 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 
 Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
 
+While Live timing connects or waits for its first data, a centered status and subtle shimmer show where timing will appear. Reduce Motion and inactive windows use static placeholders. Existing timing stays visible during reconnects, and errors have a separate static state.
+
 **Quali** means P1 in the published Grand Prix qualifying classification, excluding sprint qualifying. It is independent of the starting grid after penalties. GP wins belong to the constructor the winning driver represented at that event. Qualifying and GP results can update before the championship points; missing results stay pending and saved wins remain available after a refresh failure. The season control and refresh button are separate in the window toolbar.
 
 ## Data sources

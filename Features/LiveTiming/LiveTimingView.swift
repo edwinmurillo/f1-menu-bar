@@ -13,13 +13,13 @@ struct LiveTimingView: View {
     var body: some View {
         GeometryReader { viewport in
             ScrollView {
-                content(tableHeight: max(230, viewport.size.height / 2))
+                content(tableHeight: max(230, viewport.size.height / 2), minimumHeight: viewport.size.height)
             }
         }
         .onChange(of: snapshot.sessionID) { _, _ in selectedDriver = nil }
     }
 
-    private func content(tableHeight: CGFloat) -> some View {
+    private func content(tableHeight: CGFloat, minimumHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 SectionHeader(title: "Live timing", subtitle: [snapshot.meetingName, snapshot.sessionName].compactMap { $0 }.joined(separator: " · "))
@@ -46,9 +46,10 @@ struct LiveTimingView: View {
                 IssueBanner(message: message + (store.state.retryAt.map { " Retry after \(Presentation.date($0, format: "jmmss", zone: preferences.timeZone))." } ?? ""))
             }
             if snapshot.drivers.isEmpty {
-                ContentUnavailableView(store.isRunning ? "Waiting for session timing" : "Connect to follow a session",
-                    systemImage: "flag.checkered", description: Text("Positions, laps, tyres and pit counts appear when F1 publishes them. This view connects while it is visible."))
-                    .frame(height: tableHeight)
+                Spacer(minLength: 24)
+                LiveTimingPlaceholder(phase: store.state.phase, isRunning: store.isRunning)
+                    .frame(maxWidth: .infinity)
+                Spacer(minLength: 24)
             } else {
                 Table(snapshot.drivers, selection: $selectedDriver) {
                     TableColumn("Pos") { driver in
@@ -106,6 +107,9 @@ struct LiveTimingView: View {
             }.font(.caption)
         }
         .padding(26)
+        // Give the empty state's spacers a real viewport to center within. Keep
+        // the ScrollView so long connection messages can still be reached.
+        .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .topLeading)
     }
 
     private func isLive(at now: Date) -> Bool { store.state.phase == .connected && snapshot.hasFreshTiming(at: now) }

@@ -84,9 +84,16 @@
 - Separate production Swift checks succeeded for both providers and round-tripped their disk caches. Each returned 18 qualifying winners and 18 GP winners; the standings aggregation accounted for all 18 of each in driver statistics and all 18 GP wins in constructor statistics. OpenF1 supplied 25 calendar events including two cancellations; Jolpica supplied 23. Both supplied 23 drivers, 11 constructors, and points after the United States GP. These are dated API observations, not app constants.
 - Installed the Release bundle in `~/Applications/F1 Menu Bar.app`, verified its executable matches the build, and launched a new process. No installed-app UI automation or visual inspection was performed.
 
+## Centered live timing loader — 26 October 2026
+
+- Replaced the half-height empty block with a compact, centered status in the available viewport. The header, connection control, and attribution remain in place; long messages can still scroll.
+- Connecting, reconnecting, and waiting for initial timing show three decorative timing-row placeholders with a gentle 1.8-second shimmer. Only the small skeleton redraws, capped at 30 fps. Reduce Motion and inactive scenes use static shapes; stopped/unavailable states show static explanatory text. Existing timing rows remain visible during reconnects.
+- All 74 existing optimized tests passed, including the offscreen initial-empty, first-snapshot, session-reset, navigation, and resizing regressions. The universal Release build passed signature/static-core checks.
+- Installed and launched version 0.2.1, build 4, in `~/Applications/F1 Menu Bar.app`; the installed executable matches the build. No installed-app UI automation or visual inspection was performed. Animation appearance and the visual centering remain for the user to review.
+
 ## Native verification pending
 
-Visual inspection after the window repair and standings update is left to the user. Menu bar visibility, toolbar and panel/window rendering, win-badge scrolling, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified by the agent. Offscreen layout assertions verify geometry through fixture updates; a successful launch command, compilation, unit tests, and the headless API check do not establish the complete visible app behavior.
+Visual inspection after the window repair, standings update, and loader polish is left to the user. Menu bar visibility, toolbar and panel/window rendering, loader appearance, win-badge scrolling, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified by the agent. Offscreen layout assertions verify geometry through fixture updates; a successful launch command, compilation, unit tests, and the headless API check do not establish the complete visible app behavior.
 
 Manual checks: open the installed app, inspect the menu panel and every sidebar section, confirm timezone/appearance changes, close and reopen the window, and quit from the panel.
 
