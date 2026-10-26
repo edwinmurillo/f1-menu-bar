@@ -9,6 +9,8 @@ final class JolpicaRepositoryTests: XCTestCase {
         XCTAssertTrue(value.issues.isEmpty)
         XCTAssertEqual(value.weekends.count, 2)
         XCTAssertEqual(value.weekends[0].winner?.driverName, "Fixture Winner")
+        XCTAssertEqual(value.weekends[0].qualifyingWinner?.driverID, "winner")
+        XCTAssertNotNil(value.qualifyingUpdatedAt)
         XCTAssertNil(value.weekends[1].winner)
         XCTAssertEqual(value.weekends[1].sessions.map(\.name), ["Practice 1", "Sprint Qualifying", "Sprint", "Qualifying", "Race"])
         XCTAssertTrue(value.weekends.allSatisfy { $0.id < 0 && !$0.isCancelled })
@@ -18,6 +20,7 @@ final class JolpicaRepositoryTests: XCTestCase {
         XCTAssertNil(value.drivers.last?.driverNumber)
         XCTAssertEqual(Set(value.drivers.map(\.id)).count, 3)
         XCTAssertEqual(value.constructors.first?.points, 20.5)
+        XCTAssertEqual(value.constructors.first?.constructorID, "coral")
         XCTAssertEqual(value.driverContext?.round, 1)
         XCTAssertEqual(value.driverContext?.sessionID, value.weekends[0].grandPrix?.id)
         let requests = await transport.requests
@@ -114,6 +117,66 @@ final class JolpicaRepositoryTests: XCTestCase {
         XCTAssertNotNil(value.issues[.schedule])
     }
 
+    func testQualifyingUsesFinalClassificationAndStableDriverIdentity() async throws {
+        let value = try await repository(FixtureTransport(responses: JolpicaFixtures.responses)).refresh(year: 2026, previous: nil, publish: { _ in })
+        let driver = try XCTUnwrap(value.drivers.first)
+        let weekend = try XCTUnwrap(value.weekends.first)
+        XCTAssertEqual(weekend.qualifyingWinner?.driverNumber, 1)
+        XCTAssertEqual(driver.driverNumber, 9)
+        let wins = SeasonStatistics.victories(for: driver, in: value)
+        XCTAssertEqual(wins.count, 1)
+        XCTAssertTrue(wins[0].qualifying && wins[0].grandPrix)
+    }
+
+    func testQualifyingPaginationCountsRawResultsBeforeFilteringPositionOne() async throws {
+        let transport = FixtureTransport(responses: [
+            "/ergast/f1/2026/qualifying/1.json?limit=100&offset=0": JolpicaFixtures.qualifyingPage(total: 3, offset: 0, positions: ["1", "4"]),
+            "/ergast/f1/2026/qualifying/1.json?limit=100&offset=2": JolpicaFixtures.qualifyingPage(total: 3, offset: 2, positions: ["8"])
+        ])
+        let results = try await JolpicaClient(transport: transport, requestSpacing: .zero).qualifyingWinners(year: 2026)
+        XCTAssertEqual(results.count, 1)
+        XCTAssertEqual(results[0].result.position, "1")
+        let requests = await transport.requests
+        XCTAssertEqual(requests.count, 2)
+    }
+
+    func testQualifyingFailurePreservesCachedWinsWithoutBlockingPoints() async throws {
+        let previous = try await repository(FixtureTransport(responses: JolpicaFixtures.responses)).refresh(year: 2026, previous: nil, publish: { _ in })
+        for response in [HTTPResponse(data: Data(), status: 403),
+                         JolpicaFixtures.qualifyingPage(total: 2, offset: 0, positions: ["1", "1"]),
+                         JolpicaFixtures.qualifying.replacingJSON("\"season\":\"2026\"", with: "\"season\":\"2025\"")] {
+            var responses = JolpicaFixtures.responses
+            responses["/ergast/f1/2026/qualifying/1.json"] = response
+            let updated = try await repository(FixtureTransport(responses: responses)).refresh(year: 2026, previous: previous, publish: { _ in })
+            XCTAssertEqual(updated.weekends.first?.qualifyingWinner, previous.weekends.first?.qualifyingWinner)
+            XCTAssertEqual(updated.qualifyingUpdatedAt, previous.qualifyingUpdatedAt)
+            XCTAssertNotNil(updated.issues[.qualifying])
+            XCTAssertNil(updated.issues[.drivers])
+            XCTAssertNil(updated.issues[.constructors])
+            XCTAssertEqual(updated.drivers.count, 3)
+        }
+    }
+
+    func testPublishedQualifyingLoadsBeforeTheFirstGrandPrix() async throws {
+        let firstRace = JolpicaFixtures.firstRace.dropLast() + ",\"Qualifying\":{\"date\":\"2026-03-07\",\"time\":\"05:00:00Z\"}}"
+        var responses = JolpicaFixtures.responses
+        responses["2026.json"] = Fixtures.json("""
+        {"MRData":{"total":"1","offset":"0","RaceTable":{"Races":[\(firstRace)]}}}
+        """)
+        responses["1.json"] = Fixtures.json("""
+        {"MRData":{"total":"0","offset":"0","RaceTable":{"Races":[]}}}
+        """)
+        let transport = FixtureTransport(responses: responses)
+        let now = try XCTUnwrap(ISO8601DateFormatter().date(from: "2026-03-07T08:00:00Z"))
+        let repository = JolpicaRepository(client: JolpicaClient(transport: transport, requestSpacing: .zero), cache: MemoryCache(), now: { now })
+        let value = try await repository.refresh(year: 2026, previous: nil, publish: { _ in })
+        XCTAssertNotNil(value.weekends.first?.qualifyingWinner)
+        XCTAssertNil(value.weekends.first?.winner)
+        XCTAssertNil(value.driverContext)
+        let requests = await transport.requests
+        XCTAssertFalse(requests.contains { $0.url?.path.contains("Standings") == true })
+    }
+
     private func repository(_ transport: FixtureTransport) -> JolpicaRepository {
         JolpicaRepository(client: JolpicaClient(transport: transport, requestSpacing: .zero), cache: MemoryCache(), now: { Fixtures.now })
     }
@@ -149,6 +212,7 @@ private enum JolpicaFixtures {
     """)
     static let responses: [String: HTTPResponse] = [
         "2026.json": schedule,
+        "/ergast/f1/2026/qualifying/1.json": qualifying,
         "1.json": Fixtures.json("""
         {"MRData":{"total":"1","offset":"0","RaceTable":{"Races":[\(firstRace.dropLast()),
         "Results":[{"position":"1","number":"9","Driver":\(driver),"Constructor":\(constructor)}]}]}}}
@@ -165,4 +229,18 @@ private enum JolpicaFixtures {
         {"position":"1","positionText":"1","points":"20.5","Constructor":\(constructor)}]}]}}}
         """)
     ]
+
+    static let qualifying = qualifyingPage(total: 2, offset: 0, positions: ["1", "4"])
+
+    static func qualifyingPage(total: Int, offset: Int, positions: [String]) -> HTTPResponse {
+        let results = positions.map { position in
+            """
+            {"position":"\(position)","number":"1","Driver":\(driver),"Constructor":\(constructor)}
+            """
+        }.joined(separator: ",")
+        return Fixtures.json("""
+        {"MRData":{"total":"\(total)","offset":"\(offset)","RaceTable":{"Races":[\(firstRace.dropLast()),
+        "QualifyingResults":[\(results)]}]}}}
+        """)
+    }
 }

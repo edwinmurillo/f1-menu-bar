@@ -16,8 +16,8 @@ The initial scope is the current championship season, with automatic handling of
 | Next GP panel | GP name, circuit, weekend dates, countdown, and all sessions in chronological order. The next session is emphasized; past scheduled starts are visually subdued. |
 | Calendar window | Chronological season list, automatically positioned at the current/next GP. Each row shows country, GP, race date, sprint indicator, and status. Selecting a row opens its weekend schedule. |
 | Previous races | Completed GP rows show the winning driver and constructor. A race awaiting published results displays that state instead of an invented winner. |
-| Drivers | Table with championship position, driver, constructor(s), points, and wins. |
-| Constructors | Table with championship position, constructor, points, and wins. |
+| Drivers | Table with championship position, driver, constructor(s), points, and season qualifying/GP win counts. Event badges combine **Quali & GP** when both were won, with country flags. |
+| Constructors | Table with championship position, constructor, points, GP win count, and flags for races won by either driver. Hover a flag for the event name. |
 | Live timing | Optional personal connection to F1’s current session feed: positions, gaps, laps, tyres, pit counts, selected-driver details, race control, and weather. |
 | Settings | Launch at login, optional menu bar countdown, system-timezone or UTC display, and data-source information. |
 
@@ -45,14 +45,14 @@ OpenF1 is an independent community API, not an official Formula 1 service. It do
 | --- | --- |
 | Season events | `/v1/meetings?year={year}` |
 | Sessions, start/end times, cancellation flags | `/v1/sessions?year={year}` |
-| GP winning classification | `/v1/session_result?session_key={raceSession}&position=1` |
+| GP or qualifying winning classification | `/v1/session_result?session_key={raceOrQualifyingSession}&position=1` |
 | Driver names and team metadata | `/v1/drivers?session_key={raceSession}` |
 | Driver points and position | `/v1/championship_drivers?session_key={completedRaceSession}` |
 | Constructor points and position | `/v1/championship_teams?session_key={completedRaceSession}` |
 
 **Observed on 25 October 2026 without authentication:** the sessions request returned 131 records including testing; 25 future sessions after 25 October; and sprint qualifying. Race-session filtering returned 25 races, of which two were explicitly cancelled, leaving 23 active races. Future dates extended through 6 December. For completed Singapore race session `11388`, results returned a position-1 classification, driver standings returned 23 rows, and team standings returned 11 rows. The session driver directory returned 22 rows and resolved the winner's number to Max Verstappen and Red Bull Racing. These are dated provider-response observations, not hardcoded app values.
 
-Implementation must exclude testing and explicitly cancelled races from upcoming selection, join sessions through `meeting_key`, and keep driver-number identity scoped to the season and relevant session. Championship rows may include a driver absent from the latest race roster; resolve that driver's metadata from earlier season sessions rather than dropping the row. Select a completed **Race** session explicitly for standings; `latest` could instead identify practice or qualifying. Use provider `position_current` and `points_current`; names require metadata joins. The requested points tables are required; the proposed optional wins column needs separate result aggregation or can be omitted.
+Implementation must exclude testing and explicitly cancelled races from upcoming selection, join sessions through `meeting_key`, and keep driver-number identity scoped to the season and relevant session. Championship rows may include a driver absent from the latest race roster; resolve that driver's metadata from earlier season sessions rather than dropping the row. Select a completed **Race** session explicitly for standings; `latest` could instead identify practice or qualifying. Use provider `position_current` and `points_current`; names require metadata joins. Season win statistics were requested on 26 October: aggregate published P1 results for **Race** and **Qualifying**, excluding sprint sessions. Count qualifying classifications rather than grid positions after penalties. Attribute constructor wins using the team at that result, not a driver's later team.
 
 A later live-session request on 25 October returned HTTP 401 with an explicit global restriction, including past-session data. Free OpenF1 access alone therefore cannot guarantee calendar availability during a race. Use the Jolpica backup for this failure; the separate live feature below does not depend on OpenF1. Respect the current free limits of 3 requests/second and 30/minute, cache requests, and distinguish a subscription-required response from a network failure. Treat scheduled session end times as schedule information, not proof of actual completion.
 
@@ -85,12 +85,15 @@ Base URL: `https://api.jolpi.ca/ergast/f1/`. Use an explicit season year consist
 | --- | --- |
 | Full calendar and session start times | `{year}.json?limit=100` |
 | GP winners for the season | `{year}/results/1.json?limit=100` |
+| Qualifying results filtered to final P1 | `{year}/qualifying/1.json?limit=100` |
 | Driver championship | `{year}/{completedRound}/driverStandings.json?limit=100` |
 | Constructor championship | `{year}/{completedRound}/constructorStandings.json?limit=100` |
 
 Request `limit=100`, validate `total` and `offset`, and fetch additional pages when needed, bounded to five pages and 500 rows. Select an explicit completed GP round for standings; an unscoped latest table may already include the current weekend’s sprint. The winners query filters finishing position 1; it is not a request for round 1. Join winners to calendar events by season and round, with circuit identity checked during reconciliation.
 
-**Verified during planning:** all four requests above succeeded for 2026 without authentication. The responses contained 23 scheduled races, six sprint weekends with six `SprintQualifying` entries, 17 GP winner records, 23 driver standings rows, and 11 constructor rows. Both standings responses identified round 17. These are observations of the provider response on the research date, not constants or independent confirmation of official race facts.
+**Verified during planning:** the calendar, GP winner, and two championship requests above succeeded for 2026 without authentication. The responses contained 23 scheduled races, six sprint weekends with six `SprintQualifying` entries, 17 GP winner records, 23 driver standings rows, and 11 constructor rows. Both standings responses identified round 17. These are observations of the provider response on the research date, not constants or independent confirmation of official race facts.
+
+The qualifying results endpoint was added on 26 October. It can return additional classified drivers: filter the final `position` to `1` after counting all `QualifyingResults` rows for pagination. Match published driver and constructor IDs rather than assuming race car numbers equal permanent numbers. Cache qualifying winners independently from GP winners, so a qualifying failure does not block championship refreshes.
 
 The initial Python HTTP probe encountered a local certificate-store error. Repeating the requests with macOS `curl` succeeded with certificate verification enabled. This establishes API reachability; the eventual Swift client still needs its own integration check.
 
@@ -163,7 +166,7 @@ Keep each stage runnable when its app code exists. Do not mark the app finished 
 - An unpublished next season, a date-only session, a revised schedule, and a previously cached event disappearing from the returned schedule.
 - Initial offline launch, offline launch with cache, malformed JSON, corrupt cache, rate limiting, incomplete pagination, and one endpoint failing while others succeed.
 - Two overlapping refreshes with out-of-order completion; a late response must not overwrite newer data or a different season.
-- Correct join of GP winner to its event; provider ranking/points preserved in both standings tables.
+- Correct join of GP and qualifying winners to events; combined win badges, constructor attribution across driver transfers, and provider ranking/points preserved in both standings tables.
 - SignalR framing, full snapshots and sparse deltas, tyre age, stale/finished status, session changes, protocol failures, bounded history, and old connection callbacks after cancellation.
 - Visible panel/window checks in light/dark appearance, keyboard and VoiceOver checks, and low idle CPU/network activity measured on the Mac.
 
@@ -173,7 +176,7 @@ Use deterministic XCTest fixtures and controllable clocks, not sleep-based async
 
 Optional follow-ups include session reminders, calendar export, favorite driver/team emphasis, a spoiler-hiding setting, previous-season browsing, full race classifications, and richer telemetry through a separately evaluated provider.
 
-The implementation includes the native shell, OpenF1 with a Jolpica backup, next-GP panel, full calendar, both points tables, experimental personal live timing, settings, and verification scripts. Fixtures are confined to the test target; production uses the providers’ network services. The optional wins column is deferred as allowed in the API decision. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
+The implementation includes the native shell, OpenF1 with a Jolpica backup, next-GP panel, full calendar, both points tables with season wins, experimental personal live timing, settings, and verification scripts. Fixtures are confined to the test target; production uses the providers’ network services. Native visual verification and distribution checks are tracked in `docs/VERIFICATION.md`.
 
 ## 11. Design exploration
 

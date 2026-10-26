@@ -22,12 +22,15 @@ public struct RaceSession: Codable, Identifiable, Equatable, Sendable {
 
     public var isGrandPrix: Bool { name.caseInsensitiveCompare("Race") == .orderedSame }
     public var isSprint: Bool { name.caseInsensitiveCompare("Sprint") == .orderedSame }
+    public var isQualifying: Bool { name.caseInsensitiveCompare("Qualifying") == .orderedSame }
 }
 
 public struct RaceWinner: Codable, Equatable, Sendable {
     public let driverNumber: Int?
     public let driverName: String
     public let team: String
+    public var driverID: String? = nil
+    public var constructorID: String? = nil
 }
 
 public struct RaceWeekend: Codable, Identifiable, Equatable, Sendable {
@@ -42,12 +45,14 @@ public struct RaceWeekend: Codable, Identifiable, Equatable, Sendable {
     public var isCancelled: Bool
     public var isMissingFromSchedule: Bool
     public var winner: RaceWinner?
+    public var qualifyingWinner: RaceWinner?
 
-    public init(id: Int, year: Int, name: String, circuit: String = "", country: String = "", location: String = "", start: Date? = nil, sessions: [RaceSession], isCancelled: Bool = false, isMissingFromSchedule: Bool = false, winner: RaceWinner? = nil) {
+    public init(id: Int, year: Int, name: String, circuit: String = "", country: String = "", location: String = "", start: Date? = nil, sessions: [RaceSession], isCancelled: Bool = false, isMissingFromSchedule: Bool = false, winner: RaceWinner? = nil, qualifyingWinner: RaceWinner? = nil) {
         self.id = id; self.year = year; self.name = name; self.circuit = circuit
         self.country = country; self.location = location; self.start = start
         self.sessions = sessions; self.isCancelled = isCancelled
         self.isMissingFromSchedule = isMissingFromSchedule; self.winner = winner
+        self.qualifyingWinner = qualifyingWinner
     }
 
     public var grandPrix: RaceSession? { sessions.first(where: \.isGrandPrix) }
@@ -70,7 +75,8 @@ public struct DriverStanding: Codable, Identifiable, Equatable, Sendable {
 }
 
 public struct ConstructorStanding: Codable, Identifiable, Equatable, Sendable {
-    public var id: String { name }
+    public var id: String { constructorID ?? name }
+    public var constructorID: String? = nil
     public let name: String
     public let position: Int?
     public var positionText: String? = nil
@@ -80,7 +86,7 @@ public struct ConstructorStanding: Codable, Identifiable, Equatable, Sendable {
 }
 
 public enum DataSection: String, Codable, CaseIterable, Sendable {
-    case schedule, results, drivers, constructors
+    case schedule, results, qualifying, drivers, constructors
 }
 
 public struct ChampionshipContext: Codable, Equatable, Sendable {
@@ -100,12 +106,13 @@ public struct SeasonSnapshot: Codable, Equatable, Sendable {
     public var constructors: [ConstructorStanding] = []
     public var scheduleUpdatedAt: Date?
     public var resultsUpdatedAt: Date?
+    public var qualifyingUpdatedAt: Date?
     public var driverContext: ChampionshipContext?
     public var constructorContext: ChampionshipContext?
     public var issues: [DataSection: String] = [:]
 
     public init(year: Int, provider: DataProvider = .openF1) { self.year = year; self.provider = provider }
     public var latestUpdate: Date? {
-        [scheduleUpdatedAt, resultsUpdatedAt, driverContext?.updatedAt, constructorContext?.updatedAt].compactMap { $0 }.max()
+        [scheduleUpdatedAt, resultsUpdatedAt, qualifyingUpdatedAt, driverContext?.updatedAt, constructorContext?.updatedAt].compactMap { $0 }.max()
     }
 }

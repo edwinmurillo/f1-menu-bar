@@ -12,7 +12,7 @@ struct LiveSmoke {
             primary: OpenF1Repository(client: OpenF1Client(), cache: SnapshotCache(directory: directory)),
             fallback: JolpicaRepository(client: JolpicaClient(), cache: SnapshotCache(directory: directory, provider: .jolpica)))
         let result = try await repository.refresh(year: year, previous: nil) { partial in
-            print("Calendar: \(partial.weekends.count); winners: \(partial.weekends.filter { $0.winner != nil }.count); drivers: \(partial.drivers.count); constructors: \(partial.constructors.count)")
+            print("Calendar: \(partial.weekends.count); GP winners: \(partial.weekends.filter { $0.winner != nil }.count); qualifying winners: \(partial.weekends.filter { $0.qualifyingWinner != nil }.count); drivers: \(partial.drivers.count); constructors: \(partial.constructors.count)")
         }
         guard !result.weekends.isEmpty else { throw APIError.invalidData("no season calendar") }
         guard result.issues.isEmpty else { throw APIError.invalidData(result.issues.values.joined(separator: "; ")) }
@@ -24,6 +24,10 @@ struct LiveSmoke {
             "weekends": result.weekends.count,
             "cancelled": result.weekends.filter(\.isCancelled).count,
             "winners": result.weekends.filter { $0.winner != nil }.count,
+            "qualifying_winners": result.weekends.filter { $0.qualifyingWinner != nil }.count,
+            "driver_gp_wins": result.drivers.reduce(0) { $0 + SeasonStatistics.victories(for: $1, in: result).filter(\.grandPrix).count },
+            "driver_qualifying_wins": result.drivers.reduce(0) { $0 + SeasonStatistics.victories(for: $1, in: result).filter(\.qualifying).count },
+            "constructor_gp_wins": result.constructors.reduce(0) { $0 + SeasonStatistics.victories(for: $1, in: result).count },
             "drivers": result.drivers.count,
             "constructors": result.constructors.count,
             "standings_after": result.driverContext?.meetingName ?? "Not available",

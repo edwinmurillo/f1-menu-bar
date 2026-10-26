@@ -54,12 +54,14 @@ struct JolpicaRace: Decodable, Sendable {
     let sprintQualifying: JolpicaTime?
     let sprintShootout: JolpicaTime?
     let results: [Result]?
+    let qualifyingResults: [QualifyingResult]?
 
     enum CodingKeys: String, CodingKey {
         case season, round, raceName, date, time
         case circuit = "Circuit", firstPractice = "FirstPractice", secondPractice = "SecondPractice"
         case thirdPractice = "ThirdPractice", qualifying = "Qualifying", sprint = "Sprint"
         case sprintQualifying = "SprintQualifying", sprintShootout = "SprintShootout", results = "Results"
+        case qualifyingResults = "QualifyingResults"
     }
     struct Circuit: Decodable, Sendable {
         let circuitId: String
@@ -75,6 +77,18 @@ struct JolpicaRace: Decodable, Sendable {
         let constructor: JolpicaConstructor
         enum CodingKeys: String, CodingKey { case position, number; case driver = "Driver", constructor = "Constructor" }
     }
+    struct QualifyingResult: Decodable, Sendable {
+        let position: String?
+        let number: String?
+        let driver: JolpicaDriver
+        let constructor: JolpicaConstructor
+        enum CodingKeys: String, CodingKey { case position, number; case driver = "Driver", constructor = "Constructor" }
+    }
+}
+
+struct JolpicaQualifyingEntry: Sendable {
+    let race: JolpicaRace
+    let result: JolpicaRace.QualifyingResult
 }
 
 struct JolpicaDriver: Decodable, Sendable {

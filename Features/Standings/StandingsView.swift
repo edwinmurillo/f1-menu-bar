@@ -18,26 +18,41 @@ struct StandingsView: View {
                     .font(.callout).foregroundStyle(.secondary)
             }
             if let issue = snapshot.issues[drivers ? .drivers : .constructors] { IssueBanner(message: issue) }
-            if drivers && !snapshot.drivers.isEmpty {
-                Table(snapshot.drivers) {
-                    TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
-                    TableColumn("Driver") { row in
-                        standingName(row.name, subtitle: row.team, color: row.teamColor)
-                    }.width(min: 220, ideal: 400)
-                    TableColumn("Points") { row in points(row.points) }.width(80).alignment(.trailing)
-                }.tableStyle(.inset(alternatesRowBackgrounds: false))
-            } else if !drivers && !snapshot.constructors.isEmpty {
-                Table(snapshot.constructors) {
-                    TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
-                    TableColumn("Constructor") { row in
-                        standingName(row.name, subtitle: row.drivers, color: row.color)
-                    }.width(min: 220, ideal: 400)
-                    TableColumn("Points") { row in points(row.points) }.width(80).alignment(.trailing)
-                }.tableStyle(.inset(alternatesRowBackgrounds: false))
-            } else {
-                ContentUnavailableView(loading ? "Loading championship points" : "Standings not available yet",
-                    systemImage: "trophy", description: Text("Published points appear after a completed Grand Prix."))
+            if snapshot.issues[.results] != nil || (drivers && snapshot.issues[.qualifying] != nil) {
+                IssueBanner(message: "Some season wins could not be refreshed. Saved results are shown when available.")
             }
+            GeometryReader { viewport in
+                if drivers && !snapshot.drivers.isEmpty {
+                    Table(snapshot.drivers) {
+                        TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
+                        TableColumn("Driver") { row in
+                            standingName(row.name, subtitle: row.team, color: row.teamColor)
+                        }.width(min: 160, ideal: 210)
+                        TableColumn("Points") { row in points(row.points) }.width(65).alignment(.trailing)
+                        TableColumn("Season wins") { row in
+                            SeasonWinsView(victories: SeasonStatistics.victories(for: row, in: snapshot), drivers: true,
+                                qualifyingAvailable: snapshot.qualifyingUpdatedAt != nil, racesAvailable: snapshot.resultsUpdatedAt != nil)
+                        }.width(min: 300, ideal: 370)
+                    }.tableStyle(.inset(alternatesRowBackgrounds: false)).frame(width: viewport.size.width, height: viewport.size.height)
+                } else if !drivers && !snapshot.constructors.isEmpty {
+                    Table(snapshot.constructors) {
+                        TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
+                        TableColumn("Constructor") { row in
+                            standingName(row.name, subtitle: row.drivers, color: row.color)
+                        }.width(min: 160, ideal: 210)
+                        TableColumn("Points") { row in points(row.points) }.width(65).alignment(.trailing)
+                        TableColumn("GP wins") { row in
+                            SeasonWinsView(victories: SeasonStatistics.victories(for: row, in: snapshot), drivers: false,
+                                qualifyingAvailable: false, racesAvailable: snapshot.resultsUpdatedAt != nil)
+                        }.width(min: 260, ideal: 370)
+                    }.tableStyle(.inset(alternatesRowBackgrounds: false)).frame(width: viewport.size.width, height: viewport.size.height)
+                } else {
+                    ContentUnavailableView(loading ? "Loading championship points" : "Standings not available yet",
+                        systemImage: "trophy", description: Text("Published points appear after a completed Grand Prix."))
+                }
+            }
+            Text(drivers ? "Quali = P1 in Grand Prix qualifying · Scroll the win badges to see every event" : "Grand Prix wins by either driver · Hover a flag for the event")
+                .font(.caption).foregroundStyle(.secondary)
             HStack(spacing: 5) {
                 Image(systemName: "info.circle")
                 Text("Published championship points · \(Presentation.providerName(snapshot.provider))\(snapshot.provider == .openF1 ? " beta" : "")")

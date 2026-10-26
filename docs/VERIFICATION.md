@@ -74,9 +74,19 @@
 - The repair is version 0.1.1, build 2. Settings now reads the version from the installed bundle instead of displaying a hardcoded version.
 - The final universal Release build passed signature/static-core checks, project generation, and whitespace checks. Installed it in `~/Applications/F1 Menu Bar.app`, confirmed the installed executable matches the build, and launched a new process. The agent did not click through or visually inspect the installed app.
 
+## Standings season wins and toolbar — 26 October 2026
+
+- Separated the season label/selector from the refresh action, gave the label its intrinsic width, and kept the icon button explicitly sized. This addresses the cramped shared toolbar capsule in the user's screenshot.
+- Driver standings now include qualifying/GP win counts and horizontally scrollable event badges with country flags; a double win becomes one **Quali & GP** badge. Constructor standings show GP win counts and flags for either driver's victories, with event names on hover. Both native tables are bounded by their available viewport.
+- Statistics use published final P1 classifications, excluding sprint sessions and grid positions. Jolpica results retain stable driver/constructor IDs; OpenF1 metadata is resolved at the result session. Constructor wins stay with the team at that race. Optional cache fields preserve previously saved calendars and championship points.
+- All 74 optimized tests passed: 69 core tests and five offscreen window tests. Added coverage includes combined wins, car-number changes, team changes, cancelled/removed events, old-cache decoding, qualifying before the first GP, result failures, malformed/duplicate/wrong-season qualifying responses, result-row pagination, flag aliases, and both populated tables with 24 event badges.
+- The universal Release build passed signature/static-core checks; project generation and whitespace checks passed. Version is 0.2.0, build 3.
+- Separate production Swift checks succeeded for both providers and round-tripped their disk caches. Each returned 18 qualifying winners and 18 GP winners; the standings aggregation accounted for all 18 of each in driver statistics and all 18 GP wins in constructor statistics. OpenF1 supplied 25 calendar events including two cancellations; Jolpica supplied 23. Both supplied 23 drivers, 11 constructors, and points after the United States GP. These are dated API observations, not app constants.
+- Installed the Release bundle in `~/Applications/F1 Menu Bar.app`, verified its executable matches the build, and launched a new process. No installed-app UI automation or visual inspection was performed.
+
 ## Native verification pending
 
-Visual inspection after the latest window repair is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified by the agent. Offscreen layout assertions verify geometry through fixture updates; a successful launch command, compilation, unit tests, and the headless API check do not establish the complete visible app behavior.
+Visual inspection after the window repair and standings update is left to the user. Menu bar visibility, toolbar and panel/window rendering, win-badge scrolling, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified by the agent. Offscreen layout assertions verify geometry through fixture updates; a successful launch command, compilation, unit tests, and the headless API check do not establish the complete visible app behavior.
 
 Manual checks: open the installed app, inspect the menu panel and every sidebar section, confirm timezone/appearance changes, close and reopen the window, and quit from the panel.
 

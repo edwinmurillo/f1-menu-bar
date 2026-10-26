@@ -21,6 +21,7 @@ Built natively with Swift and SwiftUI. No account, API key, or backend setup req
 | **Next race weekend** | The full session schedule, including sprint qualifying and sprints when scheduled, plus an optional menu bar countdown. The panel shows **Ongoing Grand Prix** during the featured weekend’s dates. |
 | **Season calendar** | Past, current, next, and future weekends, with published GP winners and clear states for pending results, cancellations, or schedule changes when reported. |
 | **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. During a GP weekend, each table shows “Waiting for this weekend’s results” until its points include that GP. |
+| **Season wins** | Driver qualifying and GP win counts, with event names and country flags. A double win shares one **Quali & GP** badge. Constructors show GP win counts and flags for wins by either driver. |
 | **Personal live timing** | An experimental session table with positions, gaps, lap times, tyre compounds and age, stint history, pit counts, race control, and weather. Connects directly to F1 while the view is visible. |
 | **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |
 | **Mac preferences** | System, light, or dark appearance; optional launch at login; and manual refresh. |
@@ -58,11 +59,13 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 
 1. Click the checkered flag to see the next GP weekend and its session times.
 2. Choose **Full calendar** to browse weekends and published winners.
-3. Choose **Standings** to open driver and constructor points.
+3. Choose **Standings** to open driver and constructor points and season wins. Scroll the driver win badges horizontally to see every event; hover a constructor flag for the GP name.
 4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the view, switching sections, or sleeping the Mac stops the connection.
 5. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
 Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
+
+**Quali** means P1 in the published Grand Prix qualifying classification, excluding sprint qualifying. It is independent of the starting grid after penalties. GP wins belong to the constructor the winning driver represented at that event. Qualifying and GP results can update before the championship points; missing results stay pending and saved wins remain available after a refresh failure. The season control and refresh button are separate in the window toolbar.
 
 ## Data sources
 

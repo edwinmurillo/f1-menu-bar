@@ -122,7 +122,7 @@ private struct LiveTimingSessions: Sendable {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.urlCache = nil
-        configuration.httpAdditionalHeaders = ["User-Agent": "F1MenuBar/0.1.1 (personal live timing)"]
+        configuration.httpAdditionalHeaders = ["User-Agent": "F1MenuBar/0.2.0 (personal live timing)"]
         return configuration
     }
 
@@ -158,7 +158,7 @@ private actor LiveTimingConnection {
         components.queryItems = [URLQueryItem(name: "id", value: headers.token)]
         var request = URLRequest(url: components.url!)
         if let cookie = headers.cookie { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
-        request.setValue("F1MenuBar/0.1.1 (personal live timing)", forHTTPHeaderField: "User-Agent")
+        request.setValue("F1MenuBar/0.2.0 (personal live timing)", forHTTPHeaderField: "User-Agent")
         let socket = sessions.stream.webSocketTask(with: request)
         socket.maximumMessageSize = SignalRFrames.maximumBytes
         socket.resume()

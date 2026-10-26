@@ -26,6 +26,19 @@ public actor JolpicaClient {
         }
     }
 
+    func qualifyingWinners(year: Int) async throws -> [JolpicaQualifyingEntry] {
+        let entries: [JolpicaQualifyingEntry] = try await rows("\(year)/qualifying/1") { page in
+            guard let table = page.races else { throw APIError.invalidData("missing Jolpica qualifying results") }
+            // Pagination counts results, not race containers. This endpoint can
+            // include additional classified drivers; only final position 1 is a win.
+            return try table.races.flatMap { race in
+                guard let results = race.qualifyingResults else { throw APIError.invalidData("missing qualifying classification") }
+                return results.map { JolpicaQualifyingEntry(race: race, result: $0) }
+            }
+        }
+        return entries.filter { $0.result.position == "1" }
+    }
+
     func constructors(year: Int, round: Int) async throws -> [JolpicaConstructorStanding] {
         try await rows("\(year)/\(round)/constructorStandings") { page in
             guard let table = page.standings else { throw APIError.invalidData("missing Jolpica standings") }

@@ -7,7 +7,9 @@ actor FixtureTransport: HTTPTransport {
     init(responses: [String: HTTPResponse] = Fixtures.responses) { self.responses = responses }
     func send(_ request: URLRequest) async throws -> HTTPResponse {
         requests.append(request)
-        return responses[request.url!.lastPathComponent] ?? HTTPResponse(data: Data(), status: 404)
+        let url = request.url!
+        return responses[url.path + (url.query.map { "?" + $0 } ?? "")]
+            ?? responses[url.path] ?? responses[url.lastPathComponent] ?? HTTPResponse(data: Data(), status: 404)
     }
 }
 

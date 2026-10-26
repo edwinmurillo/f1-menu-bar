@@ -60,17 +60,21 @@ struct ChampionshipWindow: View {
         .navigationTitle("F1 Menu Bar")
         .toolbar {
             if coordinator.section != .settings && coordinator.section != .live {
-                ToolbarItem {
+                ToolbarItem(placement: .principal) {
                     if store.availableSeasons.count > 1 {
                         Picker("Season", selection: Binding(get: { store.visibleSnapshot.year }, set: { store.displayYear = $0 })) {
                             ForEach(store.availableSeasons, id: \.year) { snapshot in Text(String(snapshot.year)).tag(snapshot.year) }
-                        }.labelsHidden()
-                    } else { Text("\(String(store.visibleSnapshot.year)) season").foregroundStyle(.secondary) }
+                        }.labelsHidden().frame(minWidth: 120)
+                    } else {
+                        Text("\(String(store.visibleSnapshot.year)) season")
+                            .foregroundStyle(.secondary).fixedSize().padding(.horizontal, 8)
+                    }
                 }
             }
             if coordinator.section != .live {
-                ToolbarItem {
+                ToolbarItem(placement: .primaryAction) {
                     Button { Task { await store.refresh(force: true) } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
+                        .labelStyle(.iconOnly).frame(width: 32, height: 28)
                         .disabled(store.isRefreshing).help("Refresh data (⌘R)")
                 }
             }

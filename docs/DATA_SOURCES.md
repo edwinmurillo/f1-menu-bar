@@ -18,6 +18,14 @@ Season requests use an app User-Agent, a rate below 30 requests/minute per provi
 
 Versioned JSON snapshots are written atomically in the app’s sandboxed Application Support directory, under `F1MenuBar/openf1-v1` and `F1MenuBar/jolpica-v1`. The newest available provider cache can restore the app offline. Preferences use `UserDefaults`. Missing, corrupt, and unavailable data remain distinct. The smoke script uses `.build/live-smoke-cache`, separate from app data.
 
+## Season wins
+
+Driver statistics count published P1 classifications in Grand Prix qualifying and the Grand Prix itself. Sprint qualifying, sprint results, and grid positions after penalties do not contribute. One event can show **Quali**, **GP**, or **Quali & GP**, with its country flag. Constructors show only flags for GP wins by either driver, attributed to the team recorded for that race. Repeated flags can represent different events in the same country; hover text identifies the GP.
+
+OpenF1 uses the existing season-wide [session result query](https://openf1.org/docs/#session-result), then matches each result to an exact `Race` or `Qualifying` session and its session-specific driver/team metadata. Jolpica adds its [qualifying results endpoint](https://github.com/jolpica/jolpica-f1/blob/main/docs/endpoints/qualifying.md), `{year}/qualifying/1.json`. That response can contain non-P1 final classifications: pagination counts individual `QualifyingResults` rows before filtering final `position == 1`. Jolpica driver and constructor IDs associate results with standings, including when a champion races under number 1 or a driver changes teams.
+
+Qualifying can update before Sunday's GP and before championship points. Empty valid result responses differ from failures: unavailable statistics display a dash, while known zero wins display zero. Last good winners survive failed requests, with a visible warning. The added optional cache fields preserve existing saved calendars and points; an older cache shows qualifying as pending until refreshed. Country flags use the provider's country name, with aliases for UK/USA/UAE and a neutral globe when unknown.
+
 
 ## Experimental personal live timing
 

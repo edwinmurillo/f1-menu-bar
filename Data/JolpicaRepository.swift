@@ -24,7 +24,9 @@ public actor JolpicaRepository: SeasonRepository {
             return try await publishAndSave(value, publish: publish)
         }
         value = try await publishAndSave(value, publish: publish)
-        guard value.weekends.contains(where: { ($0.grandPrix?.start ?? .distantFuture) <= now() }) else { return value }
+        guard value.weekends.contains(where: { weekend in
+            weekend.activeSessions.contains { ($0.isGrandPrix || $0.isQualifying) && ($0.start ?? .distantFuture) <= now() }
+        }) else { return value }
 
         do {
             let races = try await client.races(year: year, winnersOnly: true)
@@ -38,7 +40,8 @@ public actor JolpicaRepository: SeasonRepository {
                       weekend.name == race.raceName, weekend.circuit == race.circuit.circuitName,
                       (weekend.grandPrix?.start ?? .distantPast) <= now() else { continue }
                 winners[id] = RaceWinner(driverNumber: Int(result.number ?? result.driver.permanentNumber ?? ""),
-                    driverName: result.driver.name, team: result.constructor.name)
+                    driverName: result.driver.name, team: result.constructor.name,
+                    driverID: result.driver.driverId, constructorID: result.constructor.constructorId)
             }
             for index in value.weekends.indices {
                 if let winner = winners[value.weekends[index].id] { value.weekends[index].winner = winner }
@@ -46,6 +49,29 @@ public actor JolpicaRepository: SeasonRepository {
             value.resultsUpdatedAt = now()
         } catch is CancellationError { throw CancellationError() }
         catch { value.issues[.results] = error.localizedDescription }
+        value = try await publishAndSave(value, publish: publish)
+
+        do {
+            let entries = try await client.qualifyingWinners(year: year)
+            var winners: [Int: RaceWinner] = [:]
+            for entry in entries {
+                let id = try Self.eventID(year: year, race: entry.race)
+                guard winners[id] == nil else { throw APIError.invalidData("duplicate Jolpica qualifying winner") }
+                guard let weekend = value.weekends.first(where: { $0.id == id }),
+                      !weekend.isMissingFromSchedule, !weekend.isCancelled,
+                      weekend.name == entry.race.raceName, weekend.circuit == entry.race.circuit.circuitName,
+                      (weekend.sessions.first(where: \.isQualifying)?.start ?? .distantPast) <= now() else { continue }
+                let result = entry.result
+                winners[id] = RaceWinner(driverNumber: Int(result.number ?? result.driver.permanentNumber ?? ""),
+                    driverName: result.driver.name, team: result.constructor.name,
+                    driverID: result.driver.driverId, constructorID: result.constructor.constructorId)
+            }
+            for index in value.weekends.indices {
+                if let winner = winners[value.weekends[index].id] { value.weekends[index].qualifyingWinner = winner }
+            }
+            value.qualifyingUpdatedAt = now()
+        } catch is CancellationError { throw CancellationError() }
+        catch { value.issues[.qualifying] = error.localizedDescription }
         value = try await publishAndSave(value, publish: publish)
 
         let completed = value.weekends.filter { $0.winner != nil && !$0.isMissingFromSchedule }
@@ -71,9 +97,10 @@ public actor JolpicaRepository: SeasonRepository {
                     } else {
                         let rows = try await client.constructors(year: year, round: round)
                         if rows.isEmpty { continue }
-                        guard Set(rows.map { $0.constructor.name }).count == rows.count else { throw APIError.invalidData("duplicate Jolpica constructors") }
+                        guard Set(rows.map { $0.constructor.constructorId }).count == rows.count,
+                              rows.allSatisfy({ !$0.constructor.constructorId.isEmpty }) else { throw APIError.invalidData("invalid Jolpica constructor identities") }
                         value.constructors = try rows.map { row in
-                            ConstructorStanding(name: row.constructor.name, position: try Self.position(row.position, text: row.positionText),
+                            ConstructorStanding(constructorID: row.constructor.constructorId, name: row.constructor.name, position: try Self.position(row.position, text: row.positionText),
                                 positionText: row.positionText, drivers: "", color: nil, points: try Self.points(row.points))
                         }
                         value.constructorContext = context
@@ -104,7 +131,7 @@ public actor JolpicaRepository: SeasonRepository {
             let old = previous.first { $0.id == id && $0.name == race.raceName && $0.circuit == race.circuit.circuitName }
             return RaceWeekend(id: id, year: year, name: race.raceName, circuit: race.circuit.circuitName,
                 country: race.circuit.location.country, location: race.circuit.location.locality,
-                sessions: sessions, winner: old?.winner)
+                sessions: sessions, winner: old?.winner, qualifyingWinner: old?.qualifyingWinner)
         }
         let ids = Set(mapped.map(\.id))
         guard ids.count == mapped.count else { throw APIError.invalidData("duplicate Jolpica races") }

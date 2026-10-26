@@ -34,7 +34,9 @@ public actor OpenF1Repository: SeasonRepository {
         guard scheduleAvailable else { return value }
 
         // Future-only calendars need no results or championship requests.
-        guard value.weekends.contains(where: { ($0.grandPrix?.start ?? .distantFuture) <= now() && !$0.isCancelled }) else { return value }
+        guard value.weekends.contains(where: { weekend in
+            !weekend.isCancelled && weekend.activeSessions.contains { ($0.isGrandPrix || $0.isQualifying) && ($0.start ?? .distantFuture) <= now() }
+        }) else { return value }
 
         let allSessions = value.weekends.flatMap(\.sessions)
         guard let minimum = allSessions.map(\.id).min(), let maximum = allSessions.map(\.id).max() else { return value }
@@ -51,22 +53,32 @@ public actor OpenF1Repository: SeasonRepository {
         do {
             let results: [ResultDTO] = try await client.get("session_result", query: range + [URLQueryItem(name: "position", value: "1")])
             try Task.checkCancellation()
+            let winners = results.filter { knownIDs.contains($0.sessionKey) && $0.position == 1 }
+            guard Set(winners.map(\.sessionKey)).count == winners.count else { throw APIError.invalidData("duplicate session winners") }
             for index in value.weekends.indices {
                 let weekend = value.weekends[index]
-                guard !weekend.isCancelled, let race = weekend.grandPrix,
-                      (race.start ?? .distantFuture) <= now(),
-                      let result = results.last(where: { $0.sessionKey == race.id && $0.position == 1 }) else { continue }
-                let driver = Self.driver(result.driverNumber, at: race, directory: directory, sessions: allSessions)
-                // Preserve resolved metadata if a metadata request fails during a refresh.
-                let old = weekend.winner?.driverNumber == result.driverNumber ? weekend.winner : nil
-                value.weekends[index].winner = RaceWinner(driverNumber: result.driverNumber,
-                    driverName: driver?.name ?? old?.driverName ?? "Driver \(result.driverNumber)",
-                    team: driver?.teamName ?? old?.team ?? "Team unavailable")
+                guard !weekend.isCancelled, !weekend.isMissingFromSchedule else { continue }
+                for session in weekend.activeSessions where session.isGrandPrix || session.isQualifying {
+                    guard (session.start ?? .distantFuture) <= now(),
+                          let result = winners.first(where: { $0.sessionKey == session.id }) else { continue }
+                    let driver = Self.driver(result.driverNumber, at: session, directory: directory, sessions: allSessions)
+                    let previous = session.isGrandPrix ? weekend.winner : weekend.qualifyingWinner
+                    let old = previous?.driverNumber == result.driverNumber ? previous : nil
+                    let winner = RaceWinner(driverNumber: result.driverNumber,
+                        driverName: driver?.name ?? old?.driverName ?? "Driver \(result.driverNumber)",
+                        team: driver?.teamName ?? old?.team ?? "Team unavailable")
+                    if session.isGrandPrix { value.weekends[index].winner = winner }
+                    else { value.weekends[index].qualifyingWinner = winner }
+                }
             }
             value.resultsUpdatedAt = now()
+            value.qualifyingUpdatedAt = now()
             if let metadataError { value.issues[.results] = "Driver names could not be refreshed. \(metadataError)" }
         } catch is CancellationError { throw CancellationError() }
-        catch { value.issues[.results] = error.localizedDescription }
+        catch {
+            value.issues[.results] = error.localizedDescription
+            value.issues[.qualifying] = error.localizedDescription
+        }
         value = try await publishAndSave(value, publish: publish)
 
         let completed = value.weekends.filter { $0.winner != nil && !$0.isCancelled && !$0.isMissingFromSchedule }
@@ -152,7 +164,8 @@ public actor OpenF1Repository: SeasonRepository {
                 circuit: meeting.circuitShortName ?? "Circuit to be announced", country: meeting.countryName ?? "",
                 location: meeting.location ?? "", start: meeting.dateStart, sessions: sorted,
                 isCancelled: (meeting.isCancelled ?? false) || (race?.isCancelled ?? false),
-                winner: old?.grandPrix?.id == race?.id ? old?.winner : nil)
+                winner: old?.grandPrix?.id == race?.id ? old?.winner : nil,
+                qualifyingWinner: old?.sessions.first(where: \.isQualifying)?.id == sorted.first(where: \.isQualifying)?.id ? old?.qualifyingWinner : nil)
         }
         let ids = Set(mapped.map(\.id))
         mapped += previous.filter { !ids.contains($0.id) }.map { old in
