@@ -50,7 +50,8 @@ struct SettingsView: View {
                         .disabled(store.isRefreshing)
                 }
                 Section {
-                    Text("F1 Menu Bar · 0.1.0").font(.callout)
+                    Text("F1 Menu Bar · \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development")")
+                        .font(.callout)
                     Text("An independent app. Not affiliated with Formula 1, the FIA, or any team.")
                         .font(.caption).foregroundStyle(.secondary)
                 }

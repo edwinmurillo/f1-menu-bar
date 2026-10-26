@@ -62,7 +62,7 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the view, switching sections, or sleeping the Mac stops the connection.
 5. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
-Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Use the panel’s power button to quit.
+Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
 
 ## Data sources
 
@@ -82,8 +82,8 @@ The project uses **Swift 6**, **SwiftUI**, **MenuBarExtra**, and **XCTest**, wit
 Scripts/bootstrap.sh        # Generate the Xcode project
 Scripts/build.sh Release    # Build the locally signed app
 Scripts/run.sh Release      # Build and launch
-Scripts/test.sh             # Deterministic core tests
-Scripts/test.sh Release     # Optimized core tests
+Scripts/test.sh             # Core and offscreen window-layout tests
+Scripts/test.sh Release     # Optimized core and window-layout tests
 Scripts/check.sh            # Whitespace and project generation
 Scripts/check-app.sh        # Release signature and static-link packaging
 Scripts/live-smoke.sh       # Opt-in live API and disk-cache check

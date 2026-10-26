@@ -11,6 +11,15 @@ struct LiveTimingView: View {
     }
 
     var body: some View {
+        GeometryReader { viewport in
+            ScrollView {
+                content(tableHeight: max(230, viewport.size.height / 2))
+            }
+        }
+        .onChange(of: snapshot.sessionID) { _, _ in selectedDriver = nil }
+    }
+
+    private func content(tableHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top) {
                 SectionHeader(title: "Live timing", subtitle: [snapshot.meetingName, snapshot.sessionName].compactMap { $0 }.joined(separator: " · "))
@@ -39,7 +48,7 @@ struct LiveTimingView: View {
             if snapshot.drivers.isEmpty {
                 ContentUnavailableView(store.isRunning ? "Waiting for session timing" : "Connect to follow a session",
                     systemImage: "flag.checkered", description: Text("Positions, laps, tyres and pit counts appear when F1 publishes them. This view connects while it is visible."))
-                    .frame(maxHeight: .infinity)
+                    .frame(height: tableHeight)
             } else {
                 Table(snapshot.drivers, selection: $selectedDriver) {
                     TableColumn("Pos") { driver in
@@ -65,7 +74,11 @@ struct LiveTimingView: View {
                     }.width(100)
                     TableColumn("Laps") { driver in Text(driver.laps.map(String.init) ?? "—").monospacedDigit() }.width(36)
                     TableColumn("Stops") { driver in Text(driver.stops.map(String.init) ?? "—").monospacedDigit() }.width(36)
-                }.tableStyle(.inset(alternatesRowBackgrounds: false)).frame(minHeight: 230)
+                }
+                .tableStyle(.inset(alternatesRowBackgrounds: false))
+                // A native Table's unconstrained fitting height can enlarge the entire
+                // NavigationSplitView, moving both columns outside the window's bounds.
+                .frame(height: tableHeight)
                 if let driver = selected { driverDetail(driver) }
             }
             if !snapshot.messages.isEmpty {
@@ -93,7 +106,6 @@ struct LiveTimingView: View {
             }.font(.caption)
         }
         .padding(26)
-        .onChange(of: snapshot.sessionID) { _, _ in selectedDriver = nil }
     }
 
     private func isLive(at now: Date) -> Bool { store.state.phase == .connected && snapshot.hasFreshTiming(at: now) }

@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import OSLog
 
 @MainActor @Observable
 public final class LiveTimingStore {
@@ -11,11 +12,13 @@ public final class LiveTimingStore {
     @ObservationIgnored private var visible = false
     @ObservationIgnored private var suspended = false
     @ObservationIgnored private var paused = false
+    @ObservationIgnored private let logger = Logger(subsystem: "com.murilloarturo.f1menubar", category: "LiveConnection")
 
     public init(feed: any LiveTimingFeed) { self.feed = feed }
 
     public func setVisible(_ value: Bool) {
         guard visible != value else { return }
+        logger.info("Visibility=\(value) suspended=\(self.suspended) paused=\(self.paused)")
         visible = value
         if visible && !suspended && !paused { start() } else { stop() }
     }
@@ -47,6 +50,9 @@ public final class LiveTimingStore {
 
     private func receive(_ value: LiveTimingState, generation token: Int) {
         guard generation == token, !Task.isCancelled else { return }
+        if state.phase != value.phase || state.snapshot.drivers.isEmpty != value.snapshot.drivers.isEmpty {
+            logger.info("Phase=\(String(describing: value.phase), privacy: .public) drivers=\(value.snapshot.drivers.count)")
+        }
         state = value
     }
 }

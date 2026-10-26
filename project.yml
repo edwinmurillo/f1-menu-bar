@@ -10,8 +10,8 @@ settings:
     MACOSX_DEPLOYMENT_TARGET: "14.0"
     CODE_SIGN_IDENTITY: "-"
     CODE_SIGN_STYLE: Manual
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.1.1"
+    CURRENT_PROJECT_VERSION: "2"
     GENERATE_INFOPLIST_FILE: YES
 targets:
   F1Core:
@@ -52,25 +52,43 @@ targets:
     type: bundle.unit-test
     platform: macOS
     sources:
-      - Tests
+      - path: Tests
+        excludes: [WindowRendering]
     dependencies:
       - target: F1Core
         embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.murilloarturo.f1menubar.tests
+  F1WindowTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - Tests/WindowRendering
+      - Features
+      - App/AppCoordinator.swift
+      - App/AppPreferences.swift
+      - App/WindowVisibilityReader.swift
+    dependencies:
+      - target: F1Core
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.murilloarturo.f1menubar.windowtests
 schemes:
   F1MenuBar:
     build:
       targets:
         F1MenuBar: all
         F1CoreTests: [test]
+        F1WindowTests: [test]
     run:
       config: Debug
     test:
       config: Debug
       targets:
         - F1CoreTests
+        - F1WindowTests
       gatherCoverageData: false
     archive:
       config: Release

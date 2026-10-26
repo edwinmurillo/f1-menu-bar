@@ -1,4 +1,5 @@
 import F1Core
+import OSLog
 import SwiftUI
 
 struct ChampionshipWindow: View {
@@ -9,6 +10,7 @@ struct ChampionshipWindow: View {
     let loginItem: LoginItemController
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @State private var isWindowVisible = false
+    private let logger = Logger(subsystem: "com.murilloarturo.f1menubar", category: "Navigation")
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -74,13 +76,20 @@ struct ChampionshipWindow: View {
             }
         }
         .tint(Presentation.accent)
-        .onAppear { Task { await store.tick() } }
+        .onAppear {
+            logger.info("Detail appeared section=\(coordinator.section.rawValue, privacy: .public)")
+            Task { await store.tick() }
+        }
         .onChange(of: coordinator.section) { _, section in
+            logger.info("Navigate section=\(section.rawValue, privacy: .public) windowVisible=\(isWindowVisible)")
             columnVisibility = .all
             liveStore.setVisible(isWindowVisible && section == .live)
         }
         .onChange(of: coordinator.navigationRevision) { _, _ in columnVisibility = .all }
-        .onDisappear { liveStore.setVisible(false) }
+        .onDisappear {
+            logger.info("Detail disappeared section=\(coordinator.section.rawValue, privacy: .public)")
+            liveStore.setVisible(false)
+        }
     }
 
     private var freshness: String {

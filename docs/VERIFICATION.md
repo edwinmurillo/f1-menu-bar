@@ -64,9 +64,19 @@
 - The strengthened 75-second production-client smoke check passed: 74 seconds continuously connected, zero interruptions, and the final United States GP snapshot with 22 drivers. Fresh active-session timing was not observed. The script now requires at least 60 uninterrupted connected seconds to succeed.
 - Replaced the installed Release app and confirmed a new running process. UI inspection remains with the user; compilation, process presence, and the headless connection check do not establish the sidebar/window rendering outcome.
 
+## Blank live window layout repair — 26 October 2026
+
+- The user's screenshot showed an intact window and toolbar with empty sidebar/detail regions. The running process remained responsive at its event loop; this was not evidence of process termination.
+- Reproduced a layout failure with the production `ChampionshipWindow` and `LiveTimingView` in an isolated, offscreen AppKit window. On the first fixture timing snapshot, the split view grew to 2,324.5 points high and its origin moved to -786 inside a 752-point host. This placed sidebar labels and timing rows outside the visible region. The earlier transport/lifecycle repair did not constrain this layout.
+- Wrapped the live content in a viewport-sized scroll container and gave the native timing table an explicit height based on the available viewport. The identical probe now keeps the split view at 752 points, origin zero, and the root fitting height at 720 points through the empty-to-populated transition.
+- All 59 optimized tests passed: 56 existing core tests and three new offscreen window tests. The latter cover a 22-driver snapshot with 40 race-control messages, section changes, a new empty session, a long reconnect message, and window resizing. They use the actual production views, fixture dependencies, explicit layout passes, and continuation-based synchronization; they do not launch or operate the installed app.
+- Added lifecycle diagnostics for window attachment/visibility/size, navigation, and connection phase. They do not log timing payloads or connection credentials.
+- The repair is version 0.1.1, build 2. Settings now reads the version from the installed bundle instead of displaying a hardcoded version.
+- The final universal Release build passed signature/static-core checks, project generation, and whitespace checks. Installed it in `~/Applications/F1 Menu Bar.app`, confirmed the installed executable matches the build, and launched a new process. The agent did not click through or visually inspect the installed app.
+
 ## Native verification pending
 
-Visual inspection after the latest startup fix is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified. A successful launch command, compilation, unit tests, and the headless API check do not establish those behaviors.
+Visual inspection after the latest window repair is left to the user. Menu bar visibility, panel/window rendering, keyboard/VoiceOver behavior, light/dark appearance, close/reopen behavior, actual login registration, wake behavior, and idle energy use remain unverified by the agent. Offscreen layout assertions verify geometry through fixture updates; a successful launch command, compilation, unit tests, and the headless API check do not establish the complete visible app behavior.
 
 Manual checks: open the installed app, inspect the menu panel and every sidebar section, confirm timezone/appearance changes, close and reopen the window, and quit from the panel.
 
