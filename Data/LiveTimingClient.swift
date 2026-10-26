@@ -40,37 +40,32 @@ struct LiveRetryPolicy {
 
 /// Owns one anonymous, in-memory connection. No account tokens, recordings, or proxy server.
 public actor F1LiveTimingClient: LiveTimingFeed {
-    private var activeSession: URLSession?
+    private var activeSessions: LiveTimingSessions?
     private var activeID: UUID?
     private var blockedUntil: Date?
     public init() {}
 
     public func run(onUpdate: @escaping @Sendable (LiveTimingState) async -> Void) async {
-        activeSession?.invalidateAndCancel()
+        activeSessions?.cancel()
+        activeSessions = nil
         let id = UUID()
         activeID = id
         if let blockedUntil, blockedUntil > Date() {
             await onUpdate(LiveTimingState(phase: .unavailable, message: "Please wait before reconnecting to F1.", retryAt: blockedUntil))
             return
         }
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.httpCookieStorage = nil
-        configuration.urlCache = nil
-        configuration.timeoutIntervalForRequest = 20
-        configuration.timeoutIntervalForResource = 30
-        configuration.httpAdditionalHeaders = ["User-Agent": "F1MenuBar/0.1.0 (personal live timing)"]
-        let session = URLSession(configuration: configuration, delegate: LiveSessionDelegate(), delegateQueue: nil)
-        activeSession = session
+        let sessions = LiveTimingSessions()
+        activeSessions = sessions
         defer {
-            session.invalidateAndCancel()
-            if activeID == id { activeSession = nil; activeID = nil }
+            sessions.cancel()
+            if activeID == id { activeSessions = nil; activeID = nil }
         }
         await withTaskCancellationHandler {
             var last = LiveTimingSnapshot()
             var failures = 0
             while !Task.isCancelled && activeID == id {
                 await onUpdate(LiveTimingState(phase: .connecting, snapshot: last))
-                let connection = LiveTimingConnection(session: session)
+                let connection = LiveTimingConnection(sessions: sessions)
                 let started = Date()
                 do {
                     try await connection.run(onUpdate: onUpdate)
@@ -103,7 +98,37 @@ public actor F1LiveTimingClient: LiveTimingFeed {
                     do { try await Task.sleep(for: .seconds(delay)) } catch { return }
                 }
             }
-        } onCancel: { session.invalidateAndCancel() }
+        } onCancel: { sessions.cancel() }
+    }
+}
+
+/// Short resource deadlines belong to finite HTTP requests, not the upgraded WebSocket.
+/// Both sessions share the same cancellation owner; cookies are forwarded explicitly in memory.
+private struct LiveTimingSessions: Sendable {
+    let negotiation: URLSession
+    let stream: URLSession
+
+    init() {
+        let httpConfiguration = Self.configuration()
+        httpConfiguration.timeoutIntervalForRequest = 20
+        httpConfiguration.timeoutIntervalForResource = 30
+        negotiation = URLSession(configuration: httpConfiguration, delegate: LiveSessionDelegate(), delegateQueue: nil)
+        // Retain Foundation's long-lived resource timeout. The protocol watchdog bounds
+        // connection setup and stops an unresponsive stream independently.
+        stream = URLSession(configuration: Self.configuration(), delegate: LiveSessionDelegate(), delegateQueue: nil)
+    }
+
+    private static func configuration() -> URLSessionConfiguration {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.httpCookieStorage = nil
+        configuration.urlCache = nil
+        configuration.httpAdditionalHeaders = ["User-Agent": "F1MenuBar/0.1.0 (personal live timing)"]
+        return configuration
+    }
+
+    func cancel() {
+        negotiation.invalidateAndCancel()
+        stream.invalidateAndCancel()
     }
 }
 
@@ -116,7 +141,7 @@ private final class LiveSessionDelegate: NSObject, URLSessionTaskDelegate, Senda
 }
 
 private actor LiveTimingConnection {
-    private let session: URLSession
+    private let sessions: LiveTimingSessions
     private var hub = LiveTimingHub()
     private var frames = SignalRFrames()
     private var dirty = false
@@ -124,7 +149,7 @@ private actor LiveTimingConnection {
     private var lastPing = Date()
     private var connectedAt = Date()
     var snapshot: LiveTimingSnapshot { hub.reducer.snapshot() }
-    init(session: URLSession) { self.session = session }
+    init(sessions: LiveTimingSessions) { self.sessions = sessions }
 
     func run(onUpdate: @escaping @Sendable (LiveTimingState) async -> Void) async throws {
         let headers = try await negotiate()
@@ -134,15 +159,17 @@ private actor LiveTimingConnection {
         var request = URLRequest(url: components.url!)
         if let cookie = headers.cookie { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
         request.setValue("F1MenuBar/0.1.0 (personal live timing)", forHTTPHeaderField: "User-Agent")
-        let socket = session.webSocketTask(with: request)
+        let socket = sessions.stream.webSocketTask(with: request)
         socket.maximumMessageSize = SignalRFrames.maximumBytes
         socket.resume()
         connectedAt = Date(); lastMessage = connectedAt; lastPing = connectedAt
         try await withTaskCancellationHandler {
             do {
-                try await send(["protocol": "json", "version": 1], socket: socket)
                 try await withThrowingTaskGroup(of: Void.self) { group in
-                    group.addTask { try await self.receive(socket: socket, onUpdate: onUpdate) }
+                    group.addTask {
+                        try await self.send(["protocol": "json", "version": 1], socket: socket)
+                        try await self.receive(socket: socket, onUpdate: onUpdate)
+                    }
                     group.addTask { try await self.keepAlive(socket: socket, onUpdate: onUpdate) }
                     defer { group.cancelAll(); socket.cancel(with: .goingAway, reason: nil) }
                     try await group.next()
@@ -178,7 +205,7 @@ private actor LiveTimingConnection {
         request.httpMethod = method
         if let cookie { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
         if method == "POST" { request.httpBody = Data() }
-        let (bytes, response) = try await session.bytes(for: request)
+        let (bytes, response) = try await sessions.negotiation.bytes(for: request)
         guard let response = response as? HTTPURLResponse else { throw LiveFeedError.invalidData }
         guard response.expectedContentLength <= 65536 else { throw LiveFeedError.tooLarge }
         var data = Data()

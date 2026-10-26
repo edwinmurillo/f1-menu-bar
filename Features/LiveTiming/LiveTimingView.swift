@@ -1,4 +1,3 @@
-import AppKit
 import F1Core
 import SwiftUI
 
@@ -94,8 +93,6 @@ struct LiveTimingView: View {
             }.font(.caption)
         }
         .padding(26)
-        .background(LiveWindowVisibility(onChange: { store.setVisible($0) }).frame(width: 0, height: 0))
-        .onDisappear { store.setVisible(false) }
         .onChange(of: snapshot.sessionID) { _, _ in selectedDriver = nil }
     }
 
@@ -159,47 +156,6 @@ struct LiveTimingView: View {
         case "INTERMEDIATE": .green
         case "WET": .blue
         default: .gray
-        }
-    }
-}
-
-/// SwiftUI can keep a closed macOS Window alive. Observe its actual visibility to release the feed.
-private struct LiveWindowVisibility: NSViewRepresentable {
-    let onChange: @MainActor (Bool) -> Void
-    func makeNSView(context: Context) -> ObserverView { ObserverView(onChange: onChange) }
-    func updateNSView(_ view: ObserverView, context: Context) { view.onChange = onChange }
-    static func dismantleNSView(_ view: ObserverView, coordinator: ()) { view.detach() }
-
-    @MainActor final class ObserverView: NSView {
-        var onChange: @MainActor (Bool) -> Void
-        private var observations: [NSObjectProtocol] = []
-        private var observing = false
-        init(onChange: @escaping @MainActor (Bool) -> Void) { self.onChange = onChange; super.init(frame: .zero) }
-        required init?(coder: NSCoder) { fatalError("init(coder:) is not supported") }
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            detach()
-            guard let window else { return }
-            observing = true
-            for name in [NSWindow.didChangeOcclusionStateNotification, NSWindow.didBecomeKeyNotification, NSWindow.didDeminiaturizeNotification] {
-                observations.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
-                    Task { @MainActor in self?.reportVisibility() }
-                })
-            }
-            observations.append(NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: window, queue: .main) { [weak self] _ in
-                Task { @MainActor in self?.onChange(false) }
-            })
-            Task { @MainActor [weak self] in self?.reportVisibility() }
-        }
-        func reportVisibility() {
-            guard observing else { return }
-            onChange(window?.isVisible == true && window?.isMiniaturized == false && window?.occlusionState.contains(.visible) == true)
-        }
-        func detach() {
-            observing = false
-            observations.forEach { NotificationCenter.default.removeObserver($0) }
-            observations.removeAll()
-            onChange(false)
         }
     }
 }

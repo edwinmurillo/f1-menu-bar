@@ -37,7 +37,7 @@ struct F1MenuBarApp: App {
         Window("F1 Menu Bar", id: "championship") {
             ChampionshipWindow(store: store, liveStore: liveStore, preferences: preferences, coordinator: coordinator, loginItem: loginItem)
                 .preferredColorScheme(preferences.colorScheme)
-                .frame(minWidth: coordinator.section == .live ? 1000 : 790, minHeight: coordinator.section == .live ? 700 : 550)
+                .frame(minWidth: 1000, minHeight: 720)
         }
         .defaultSize(width: 1000, height: 720)
         .commands {

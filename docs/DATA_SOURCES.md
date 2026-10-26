@@ -33,7 +33,9 @@ The connection exists while the section and window are visible. Closing, minimiz
 
 Transient failures receive at most three retries at 2, 5, and 15 seconds; a connection stable for a minute resets that budget. Access/rate refusals stop automatic retries and enforce at least a two-minute cooldown plus any longer Retry-After. Negotiation reads, WebSocket frames, JSON depth, stored timing, and early updates are bounded. Recent race control is capped at 40 messages; UI updates are coalesced to roughly one per second. Timing is kept in memory only: no disk recording or proxy server.
 
-`Scripts/live-timing-smoke.sh Release` uses the production Swift client for a connection of up to 45 seconds. It prints session identity, field counts, interruptions, and whether fresh timing was observed. It prints no cookies or connection IDs. Snapshot access alone does not verify active-session delivery or the app’s native UI.
+HTTP negotiation uses a separate URLSession with a 30-second resource deadline. The WebSocket retains Foundation’s long resource lifetime; the protocol watchdog covers its initial handshake/subscription and requires messages within 45 seconds. Cancelling a run invalidates both sessions. Window visibility is observed outside the live section and delivered asynchronously, coalescing temporary detach/attach notifications without mutating SwiftUI state during native view updates.
+
+`Scripts/live-timing-smoke.sh Release` uses the production Swift client for a connection of up to 75 seconds. It prints session identity, field counts, interruptions, uninterrupted connection duration, and whether fresh timing was observed. Success requires at least 60 seconds connected with no interruption. It prints no cookies or connection IDs. Snapshot access alone does not verify active-session delivery or the app’s native UI.
 
 ## Provider terms
 

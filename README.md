@@ -62,7 +62,7 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the view, switching sections, or sleeping the Mac stops the connection.
 5. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
-Closing the detail window keeps the menu bar app running. Use the panel’s power button to quit.
+Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Use the panel’s power button to quit.
 
 ## Data sources
 
@@ -87,7 +87,7 @@ Scripts/test.sh Release     # Optimized core tests
 Scripts/check.sh            # Whitespace and project generation
 Scripts/check-app.sh        # Release signature and static-link packaging
 Scripts/live-smoke.sh       # Opt-in live API and disk-cache check
-Scripts/live-timing-smoke.sh # Opt-in 45-second anonymous timing connection
+Scripts/live-timing-smoke.sh # Opt-in 75-second connection stability check
 ```
 
 Scripts honor `DEVELOPER_DIR` and find full Xcode when the system selects Command Line Tools. They do not change the global developer-directory setting. To choose an installation:

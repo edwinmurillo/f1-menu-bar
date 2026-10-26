@@ -1,4 +1,4 @@
-# Verification — 25 October 2026
+# Verification — 25–26 October 2026
 
 ## Environment
 
@@ -54,6 +54,15 @@
 - Two headless connections using the production Swift client succeeded anonymously. The final 45-second check had no interruptions and returned United States Grand Prix / Race, with 22 drivers carrying lap times, tyre compounds, and pit counts, plus the latest 40 race-control messages. The initial check reported `Finalised`; the later one reported `Ends`. Neither observed fresh active-session timing. These are dated feed observations, not constants or evidence of live racing.
 - The connection check verifies negotiation, subscription, snapshot decoding, keepalive, and cancellation. Actual updates during an active session, behavior across a live session change, and recovery from a real network outage remain unverified outside deterministic fixtures.
 - Replaced `~/Applications/F1 Menu Bar.app` with the Release build and issued its launch command. No UI inspection was performed, as requested by the user.
+
+## Live window and connection repair — 26 October 2026
+
+- Following a report that Live timing made the sidebar and window disappear, the installed process was still running. A stack sample showed an idle event loop; no new app crash report was found. The disappearance itself was not visually reproduced.
+- Source inspection found synchronous observable-state mutation in the live view’s native attachment/removal callbacks. Moved visibility observation to the stable detail-window container and added deferred, coalesced delivery with obsolete-notification guards. Section changes no longer replace the visibility observer. Window minimum size is constant across sections, and sidebar visibility is explicitly restored when navigating.
+- The installed app’s network log recorded a WebSocket HTTP 101 upgrade followed by `NSURLErrorTimedOut` after about 30 seconds. The stream had shared the finite HTTP session’s 30-second resource timeout. It now has a separate long-lived URLSession; both sessions retain one cancellation owner. The protocol watchdog now also covers sending the initial handshake.
+- All 56 optimized core tests passed, including three new deterministic regressions for deferred view-update callbacks, transient detach/reattach events, and a close superseding queued visibility. Release signature/static-core checks passed.
+- The strengthened 75-second production-client smoke check passed: 74 seconds continuously connected, zero interruptions, and the final United States GP snapshot with 22 drivers. Fresh active-session timing was not observed. The script now requires at least 60 uninterrupted connected seconds to succeed.
+- Replaced the installed Release app and confirmed a new running process. UI inspection remains with the user; compilation, process presence, and the headless connection check do not establish the sidebar/window rendering outcome.
 
 ## Native verification pending
 

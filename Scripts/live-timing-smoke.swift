@@ -6,19 +6,26 @@ private actor LiveProbe {
     private var connected = false
     private var fresh = false
     private var interruptions = 0
+    private var connectedAt: Date?
     func accept(_ state: LiveTimingState) {
         if state.phase != latest.phase { print("Connection: \(state.phase)") }
-        if connected && state.phase != .connected && state.phase != latest.phase { interruptions += 1 }
+        if state.phase == .connected && latest.phase != .connected { connectedAt = Date() }
+        if connected && state.phase != .connected && state.phase != latest.phase {
+            interruptions += 1
+            connectedAt = nil
+        }
         latest = state
         connected = connected || state.phase == .connected
         fresh = fresh || state.snapshot.hasFreshTiming(at: Date())
     }
     func report() throws -> Bool {
         let snapshot = latest.snapshot
+        let stableSeconds = connectedAt.map { Date().timeIntervalSince($0) } ?? 0
         let report: [String: Any] = [
             "connected": connected,
             "fresh_timing_observed": fresh,
             "interruptions": interruptions,
+            "uninterrupted_connection_seconds": Int(stableSeconds),
             "meeting": snapshot.meetingName ?? "Unknown",
             "session": snapshot.sessionName ?? "Unknown",
             "session_status": snapshot.sessionStatus ?? "Unknown",
@@ -30,7 +37,7 @@ private actor LiveProbe {
             "issue": latest.message ?? "None"
         ]
         print(String(decoding: try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]), as: UTF8.self))
-        return connected
+        return connected && latest.phase == .connected && interruptions == 0 && stableSeconds >= 60
     }
 }
 
@@ -40,7 +47,7 @@ private actor LiveProbe {
         let client = F1LiveTimingClient()
         await withTaskGroup(of: Void.self) { group in
             group.addTask { await client.run { state in await probe.accept(state) } }
-            group.addTask { try? await Task.sleep(for: .seconds(45)) }
+            group.addTask { try? await Task.sleep(for: .seconds(75)) }
             await group.next()
             group.cancelAll()
         }

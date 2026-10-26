@@ -42,6 +42,8 @@ Keep F1Core a static framework and do not embed it in the app. A dynamic ad-hoc 
 
 Keep the MenuBarExtra label a plain Label/Image/Text. Own refresh timers and system notifications in AppLifecycle, not inside the label. A TimelineView with lifecycle modifiers in that label triggered a continuous native status-button update loop during launch on macOS 27.
 
+Observe window visibility from the stable ChampionshipWindow container, outside section-specific content. Defer and coalesce AppKit attachment/removal callbacks before changing observable SwiftUI state. Keep window size constraints independent of the selected section and explicitly own sidebar visibility. Use separate URLSessions for bounded HTTP negotiation and the long-lived WebSocket; a 30-second HTTP resource deadline must not be applied to the stream.
+
 Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
 
 For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep fake data and test controls out of release composition.

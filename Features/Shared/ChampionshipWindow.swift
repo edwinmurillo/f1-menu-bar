@@ -7,9 +7,11 @@ struct ChampionshipWindow: View {
     let preferences: AppPreferences
     @Bindable var coordinator: AppCoordinator
     let loginItem: LoginItemController
+    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @State private var isWindowVisible = false
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: Binding<AppSection?>(get: { coordinator.section }, set: { if let value = $0 { coordinator.section = value } })) {
                 Section("Championship") {
                     ForEach([AppSection.calendar, .drivers, .constructors, .live]) { section in
@@ -48,6 +50,11 @@ struct ChampionshipWindow: View {
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.vertical, 10)
             }.background(Color(nsColor: .windowBackgroundColor))
         }
+        .navigationSplitViewStyle(.balanced)
+        .background(WindowVisibilityReader { visible in
+            isWindowVisible = visible
+            liveStore.setVisible(visible && coordinator.section == .live)
+        }.frame(width: 0, height: 0))
         .navigationTitle("F1 Menu Bar")
         .toolbar {
             if coordinator.section != .settings && coordinator.section != .live {
@@ -68,6 +75,12 @@ struct ChampionshipWindow: View {
         }
         .tint(Presentation.accent)
         .onAppear { Task { await store.tick() } }
+        .onChange(of: coordinator.section) { _, section in
+            columnVisibility = .all
+            liveStore.setVisible(isWindowVisible && section == .live)
+        }
+        .onChange(of: coordinator.navigationRevision) { _, _ in columnVisibility = .all }
+        .onDisappear { liveStore.setVisible(false) }
     }
 
     private var freshness: String {
