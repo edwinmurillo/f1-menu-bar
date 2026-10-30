@@ -13,15 +13,20 @@ extension RaceWeekend {
 public struct RaceHistoryRequest: Codable, Equatable, Sendable {
     public let calendarProvider: DataProvider
     public let weekend: RaceWeekend
-    public init(weekend: RaceWeekend, provider: DataProvider) {
-        self.weekend = weekend; calendarProvider = provider
+    public let sessionID: Int?
+    public init(weekend: RaceWeekend, provider: DataProvider, sessionID: Int? = nil) {
+        self.weekend = weekend; calendarProvider = provider; self.sessionID = sessionID
+    }
+    public var session: RaceSession? {
+        if let sessionID { return weekend.sessions.first { $0.id == sessionID } }
+        return weekend.grandPrix
     }
     public static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.calendarProvider == rhs.calendarProvider && lhs.weekend.id == rhs.weekend.id &&
-            lhs.weekend.year == rhs.weekend.year && lhs.weekend.grandPrix == rhs.weekend.grandPrix &&
+            lhs.weekend.year == rhs.weekend.year && lhs.sessionID == rhs.sessionID && lhs.session == rhs.session &&
             lhs.weekend.isCancelled == rhs.weekend.isCancelled && lhs.weekend.isMissingFromSchedule == rhs.weekend.isMissingFromSchedule
     }
-    public var key: String { "\(calendarProvider.rawValue)-\(weekend.year)-\(weekend.id)" }
+    public var key: String { "\(calendarProvider.rawValue)-\(weekend.year)-\(weekend.id)-\(sessionID.map(String.init) ?? "race")" }
 }
 
 public struct RaceHistoryDriver: Codable, Identifiable, Equatable, Sendable {
@@ -41,6 +46,7 @@ public struct RaceHistoryTiming: Codable, Equatable, Sendable {
     public let compound: String?
     public let tyreAge: Int?
     public let stops: Int?
+    public var inPit: Bool? = nil
 }
 
 public enum RaceHistoryGap: Codable, Equatable, Sendable {
@@ -51,6 +57,7 @@ public enum RaceHistoryGap: Codable, Equatable, Sendable {
 public struct RaceHistoryLap: Codable, Identifiable, Equatable, Sendable {
     public let number: Int
     public let timings: [RaceHistoryTiming]
+    public var recordedAt: Date? = nil
     public var id: Int { number }
 }
 

@@ -23,6 +23,21 @@ final class LiveTimingTests: XCTestCase {
         XCTAssertFalse(value.hasFreshTiming(at: now))
     }
 
+    func testSessionClockCountsDownPausesAndResetsOnNewSession() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(initial), receivedAt: now)
+        let utc = "2027-01-15T08:00:00Z"
+        try reducer.apply(topic: "ExtrapolatedClock", value: json("{\"Utc\":\"\(utc)\",\"Remaining\":\"00:06:00\",\"Extrapolating\":true}"),
+            timestamp: now, receivedAt: now)
+        XCTAssertEqual(reducer.snapshot().sessionClock?.remaining(at: now.addingTimeInterval(90)), 270)
+        try reducer.apply(topic: "ExtrapolatedClock", value: json(#"{"Remaining":"00:04:30","Extrapolating":false}"#),
+            timestamp: now.addingTimeInterval(90), receivedAt: now.addingTimeInterval(90))
+        XCTAssertEqual(reducer.snapshot().sessionClock?.remaining(at: now.addingTimeInterval(300)), 270)
+        try reducer.apply(topic: "SessionInfo", value: json(#"{"Key":124,"Name":"Qualifying"}"#),
+            timestamp: now.addingTimeInterval(301), receivedAt: now.addingTimeInterval(301))
+        XCTAssertNil(reducer.snapshot().sessionClock)
+    }
+
     func testSparseUpdatesKeepUnchangedFieldsAndMergeIndexedArrays() throws {
         var reducer = LiveTimingReducer()
         try reducer.seed(json(initial), receivedAt: now)

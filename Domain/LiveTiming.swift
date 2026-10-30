@@ -4,7 +4,7 @@ public enum LiveConnectionPhase: Equatable, Sendable {
     case stopped, connecting, connected, reconnecting, unavailable
 }
 
-public struct LiveTyreStint: Identifiable, Equatable, Sendable {
+public struct LiveTyreStint: Codable, Identifiable, Equatable, Sendable {
     public let id: Int
     public let compound: String?
     public let tyreAge: Int?
@@ -12,7 +12,7 @@ public struct LiveTyreStint: Identifiable, Equatable, Sendable {
     public let isNew: Bool?
 }
 
-public struct LiveDriverTiming: Identifiable, Equatable, Sendable {
+public struct LiveDriverTiming: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let position: Int?
     public let name: String
@@ -33,13 +33,34 @@ public struct LiveDriverTiming: Identifiable, Equatable, Sendable {
     public var currentTyre: LiveTyreStint? { stints.last }
 }
 
-public struct LiveRaceMessage: Identifiable, Equatable, Sendable {
+public struct LiveRaceMessage: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let date: Date?
     public let message: String
 }
 
-public struct LiveTimingSnapshot: Equatable, Sendable {
+public struct LiveSessionClock: Codable, Equatable, Sendable {
+    public let remainingAtReference: TimeInterval
+    public let referenceUTC: Date
+    public let extrapolating: Bool
+
+    public init?(remaining: String?, referenceUTC: Date?, extrapolating: Bool?) {
+        guard let remaining, let referenceUTC, let extrapolating else { return nil }
+        let parts = remaining.split(separator: ":")
+        guard parts.count == 3, let hours = Int(parts[0]), let minutes = Int(parts[1]),
+              let seconds = Int(parts[2]), (0...24).contains(hours), (0...59).contains(minutes),
+              (0...59).contains(seconds) else { return nil }
+        remainingAtReference = TimeInterval(hours * 3600 + minutes * 60 + seconds)
+        self.referenceUTC = referenceUTC
+        self.extrapolating = extrapolating
+    }
+
+    public func remaining(at now: Date) -> TimeInterval {
+        max(0, remainingAtReference - (extrapolating ? max(0, now.timeIntervalSince(referenceUTC)) : 0))
+    }
+}
+
+public struct LiveTimingSnapshot: Codable, Equatable, Sendable {
     public var sessionID: String?
     public var meetingName: String?
     public var sessionName: String?
@@ -54,6 +75,7 @@ public struct LiveTimingSnapshot: Equatable, Sendable {
     public var receivedAt: Date?
     /// Only timestamped TimingData deltas establish fresh timing, never a subscription snapshot or ping.
     public var lastTimingUpdate: Date?
+    public var sessionClock: LiveSessionClock?
     public init() {}
 
     public var hasFinished: Bool { sessionStatus.map { ["Finished", "Finalised", "Ends"].contains($0) } ?? false }

@@ -102,7 +102,7 @@ func liveDate(_ text: String?) -> Date? {
 }
 
 struct LiveTimingReducer {
-    static let topics = ["SessionInfo", "SessionStatus", "TrackStatus", "DriverList", "TimingData", "TimingAppData", "LapCount", "RaceControlMessages", "WeatherData"]
+    static let topics = ["SessionInfo", "SessionStatus", "ExtrapolatedClock", "TrackStatus", "DriverList", "TimingData", "TimingAppData", "LapCount", "RaceControlMessages", "WeatherData"]
     private var topics: [String: LiveJSON] = [:]
     private var timestamps: [String: Date] = [:]
     private(set) var lastTimingUpdate: Date?
@@ -167,6 +167,9 @@ struct LiveTimingReducer {
         result.trackTemperature = topics["WeatherData"]?["TrackTemp"].text
         result.receivedAt = receivedAt
         result.lastTimingUpdate = lastTimingUpdate
+        let clock = topics["ExtrapolatedClock"] ?? .null
+        result.sessionClock = LiveSessionClock(remaining: clock["Remaining"].text,
+            referenceUTC: liveDate(clock["Utc"].text), extrapolating: clock["Extrapolating"].bool)
         let numbers = Set(roster.entries.keys).union(timing.entries.keys).filter { Int($0) != nil }
         result.drivers = numbers.map { number in
             let person = roster[number], line = timing[number]

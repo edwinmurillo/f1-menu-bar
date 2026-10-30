@@ -38,7 +38,7 @@ struct LiveRetryPolicy {
     }
 }
 
-/// Owns one anonymous, in-memory connection. No account tokens, recordings, or proxy server.
+/// Owns one anonymous connection. A separate local archive stores observed lap snapshots.
 public actor F1LiveTimingClient: LiveTimingFeed {
     private var activeSessions: LiveTimingSessions?
     private var activeID: UUID?

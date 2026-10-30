@@ -17,8 +17,9 @@ public final class RaceHistoryStore {
     public init(repository: any RaceHistoryRepository, now: @escaping @Sendable () -> Date = { Date() }) { self.repository = repository; self.now = now }
 
     private func reusable(_ value: RaceHistory, for selected: RaceHistoryRequest) -> Bool {
-        guard value.request == selected, !value.needsPositionRepair, value.detailsComplete != false else { return false }
-        if !value.laps.isEmpty, selected.weekend.winner != nil { return true }
+        guard value.request == selected, (selected.sessionID != nil && selected.session?.isGrandPrix != true || !value.needsPositionRepair), value.detailsComplete != false else { return false }
+        if !value.laps.isEmpty, (selected.sessionID == nil || selected.session?.isGrandPrix == true),
+           selected.weekend.winner != nil { return true }
         let age = now().timeIntervalSince(value.updatedAt)
         return age >= 0 && age < (value.laps.isEmpty ? 30 : 3600)
     }
@@ -31,7 +32,8 @@ public final class RaceHistoryStore {
     private func accept(_ value: RaceHistory, selected: RaceHistoryRequest, token: Int) {
         guard generation == token, request == selected, value.request == selected, !Task.isCancelled else { return }
         if value.detailsComplete == false, let old = history, old.request == selected,
-           old.detailsComplete != false, !old.laps.isEmpty, !old.needsPositionRepair { return }
+           old.detailsComplete != false, !old.laps.isEmpty,
+           (selected.sessionID != nil && selected.session?.isGrandPrix != true || !old.needsPositionRepair) { return }
         history = value; remember(value)
     }
 

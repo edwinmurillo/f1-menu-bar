@@ -2,12 +2,18 @@ import F1Core
 import SwiftUI
 
 struct RaceHistoryTimingTable: View {
-    private enum Sort: String { case position = "Pos", driver = "Driver", gap = "Gap", last = "Lap time", best = "Best so far", tyre = "Tyre / age", stops = "Stops" }
+    private enum Sort: String { case position = "Pos", driver = "Driver", gap = "Gap", last = "Lap time", best = "Best so far", tyre = "Tyre / age", stops = "Stops", pit = "Pit" }
     let history: RaceHistory
     let lap: Int
     @Binding var highlightedDriver: String?
     @State private var sort: Sort = .position
     @State private var ascending = true
+    private var isPracticeTimeline: Bool {
+        history.sourceID.hasPrefix("live:") &&
+            (history.request.session?.name.localizedCaseInsensitiveContains("Practice") == true ||
+             history.request.session?.name.localizedCaseInsensitiveContains("Qualifying") == true ||
+             history.request.session?.name.localizedCaseInsensitiveContains("Shootout") == true)
+    }
 
     private var rows: [(RaceHistoryDriver, RaceHistoryTiming?)] {
         let timings = history.laps.first { $0.number == lap }?.timings ?? []
@@ -23,6 +29,7 @@ struct RaceHistoryTimingTable: View {
             case .best: order = (a.1?.bestDuration ?? .infinity, a.0.name, a.0.id) < (b.1?.bestDuration ?? .infinity, b.0.name, b.0.id)
             case .tyre: order = (a.1?.compound ?? "", a.0.name, a.0.id) < (b.1?.compound ?? "", b.0.name, b.0.id)
             case .stops: order = (a.1?.stops ?? .max, a.0.name, a.0.id) < (b.1?.stops ?? .max, b.0.name, b.0.id)
+            case .pit: order = (a.1?.inPit == true ? 0 : 1, a.0.name, a.0.id) < (b.1?.inPit == true ? 0 : 1, b.0.name, b.0.id)
             }
             return ascending ? order : !order
         }
@@ -31,7 +38,7 @@ struct RaceHistoryTimingTable: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Lap \(lap) timing").font(.title3.weight(.semibold))
+                Text(isPracticeTimeline ? "Best times · update \(lap)" : "Lap \(lap) timing").font(.title3.weight(.semibold))
                 Spacer()
                 Text("\(rows.count) drivers").font(.caption).foregroundStyle(.secondary)
             }
@@ -44,6 +51,7 @@ struct RaceHistoryTimingTable: View {
                     heading(.best, width: 82)
                     heading(.tyre, width: 98)
                     heading(.stops, width: 42)
+                    heading(.pit, width: 34)
                 }.padding(.horizontal, 10).padding(.vertical, 10)
                     .background(.quaternary.opacity(0.35))
                 ForEach(rows, id: \.0.id) { driver, timing in
@@ -54,7 +62,8 @@ struct RaceHistoryTimingTable: View {
                                 Capsule().fill(Presentation.color(hex: driver.teamColor)).frame(width: 3, height: 28)
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(driver.name).fontWeight(.medium).lineLimit(1)
-                                    Text(timing == nil ? "No lap recorded" : driver.team).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                                    Text(timing?.bestDuration == nil && isPracticeTimeline ? "No best time yet" : timing == nil ? "No lap recorded" : driver.team)
+                                        .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                                 }
                             }.frame(maxWidth: .infinity, alignment: .leading)
                             Text(HistoryFormat.gap(timing?.gap)).frame(width: 66, alignment: .leading)
@@ -67,6 +76,9 @@ struct RaceHistoryTimingTable: View {
                                 Text(timing?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
                             }.frame(width: 98, alignment: .leading)
                             Text(timing?.stops.map(String.init) ?? "—").frame(width: 42, alignment: .leading)
+                            Text(timing?.inPit == true ? "PIT" : "—")
+                                .foregroundStyle(timing?.inPit == true ? Color.orange : Color.secondary)
+                                .frame(width: 34, alignment: .leading)
                         }
                         .font(.callout).monospacedDigit()
                         .padding(.horizontal, 10).padding(.vertical, 10)
@@ -89,7 +101,7 @@ struct RaceHistoryTimingTable: View {
             if sort == value { ascending.toggle() } else { sort = value; ascending = true }
         } label: {
             HStack(spacing: 3) {
-                Text(value.rawValue).lineLimit(1)
+                Text(isPracticeTimeline && value == .last ? "Last time" : isPracticeTimeline && value == .best ? "Best time" : value.rawValue).lineLimit(1)
                 if sort == value { Image(systemName: ascending ? "chevron.up" : "chevron.down").font(.system(size: 8)) }
             }.font(.caption.weight(.medium)).foregroundStyle(.secondary)
         }.buttonStyle(.plain).frame(width: width, alignment: .leading).help("Sort by \(value.rawValue)")

@@ -23,7 +23,7 @@ struct F1MenuBarApp: App {
         _store = State(initialValue: store)
         _historyStore = State(initialValue: RaceHistoryStore(repository: HistoricalRaceRepository(
             openF1: openF1, jolpica: jolpica, cache: RaceHistoryCache(directory: directory))))
-        let liveStore = LiveTimingStore(feed: F1LiveTimingClient())
+        let liveStore = LiveTimingStore(feed: F1LiveTimingClient(), archive: LiveLapArchive(directory: directory))
         _liveStore = State(initialValue: liveStore)
         lifecycle.store = store
         lifecycle.liveStore = liveStore

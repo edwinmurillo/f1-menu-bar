@@ -53,6 +53,10 @@ struct LiveTimingView: View {
                     }.width(100)
                     TableColumn("Laps") { driver in Text(driver.laps.map(String.init) ?? "—").monospacedDigit() }.width(36)
                     TableColumn("Stops") { driver in Text(driver.stops.map(String.init) ?? "—").monospacedDigit() }.width(36)
+                    TableColumn("Pit") { driver in
+                        Text(driver.inPit ? "PIT" : "—")
+                            .foregroundStyle(driver.inPit ? Color.orange : Color.secondary)
+                    }.width(36)
                 }
                 .tableStyle(.inset(alternatesRowBackgrounds: false))
                 // A native Table's unconstrained fitting height can enlarge the entire

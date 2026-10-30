@@ -7,7 +7,10 @@ public final class LiveTimingStore {
     public private(set) var state = LiveTimingState()
     public private(set) var isRunning = false
     public private(set) var lapSnapshots: [Int: LiveTimingSnapshot] = [:]
+    public private(set) var recording: LiveSessionRecording?
     @ObservationIgnored private let feed: any LiveTimingFeed
+    @ObservationIgnored private let archive: LiveLapArchive?
+    @ObservationIgnored private var archiveSequence = 0
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var visible = false
@@ -16,7 +19,16 @@ public final class LiveTimingStore {
     @ObservationIgnored private var loggedSessionID: String?
     @ObservationIgnored private let logger = Logger(subsystem: "com.murilloarturo.f1menubar", category: "LiveConnection")
 
-    public init(feed: any LiveTimingFeed) { self.feed = feed }
+    public init(feed: any LiveTimingFeed, archive: LiveLapArchive? = nil) {
+        self.feed = feed; self.archive = archive
+        if let archive {
+            Task { [weak self] in
+                if let saved = try? await archive.latest(), self?.recording == nil {
+                    self?.recording = saved
+                }
+            }
+        }
+    }
 
     public func setVisible(_ value: Bool) {
         guard visible != value else { return }
@@ -62,11 +74,28 @@ public final class LiveTimingStore {
         if let sessionID = snapshot.sessionID, loggedSessionID != sessionID {
             loggedSessionID = sessionID
             lapSnapshots = [:]
+            if recording?.sessionID != sessionID { recording = nil }
         }
         if snapshot.sessionName == "Race", let sessionID = snapshot.sessionID,
            let lap = snapshot.currentLap, (1...200).contains(lap), !snapshot.drivers.isEmpty {
             guard loggedSessionID == sessionID else { return }
             lapSnapshots[lap] = snapshot
+        }
+        if let sessionID = snapshot.sessionID, let name = snapshot.sessionName,
+           let meeting = snapshot.meetingName, !snapshot.drivers.isEmpty,
+           value.phase == .connected, snapshot.hasFreshTiming(at: snapshot.receivedAt ?? Date()) {
+            if recording?.sessionID != sessionID {
+                recording = LiveSessionRecording(sessionID: sessionID, meetingName: meeting,
+                    sessionName: name, updatedAt: snapshot.receivedAt ?? Date())
+            }
+            let before = recording?.updatedAt
+            recording?.record(snapshot, at: snapshot.receivedAt ?? Date())
+            if let recording, recording.recordedStepCount > 0,
+               (!recording.isBestLapSession || recording.updatedAt != before), let archive {
+                archiveSequence += 1
+                let sequence = archiveSequence
+                Task { try? await archive.save(recording, sequence: sequence) }
+            }
         }
     }
 }

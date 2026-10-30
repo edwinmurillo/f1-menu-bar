@@ -56,6 +56,7 @@ struct LiveTimingConnectionHeader: View {
                     }
                 }.font(.caption)
             }
+            LiveSessionClockView(store: store)
             if let message = store.state.message {
                 // This header also lives outside the timeline's content scroll.
                 // Bound verbose failures so they cannot enlarge the split view.

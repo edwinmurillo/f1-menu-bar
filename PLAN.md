@@ -62,10 +62,10 @@ A later live-session request on 25 October returned HTTP 401 with an explicit gl
 Arturo authorized trying F1’s anonymous live feed locally for personal use after discussing its access and usage risks. Use the direct SignalR Core/WebSocket endpoint as an optional, experimental feature, separate from calendar, winners, and championship snapshots. This is not a supported public developer API or a promise of continued access.
 
 - Show the feed’s actual meeting, session, status, positions, gaps, lap counts/times, sectors, tyre compound/age, observed stint history, pit counts, recent race-control messages, track status, and weather when supplied.
-- Connect only while Live timing is visible. Historical Race timeline has an independent request and cache owner. Stop on close, hiding, leaving Live timing, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
+- Connect while Live timing or Race timeline is visible. Historical Race timeline requests retain an independent cache owner. Stop on close, hiding, leaving both timing sections, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
 - Merge sparse topic updates into the subscription snapshot. Reset on a new session or subscription, reject obsolete connections and older topic updates, and bound memory and publication frequency.
 - Show **Live** only for a Started session with a recent timestamped timing update. A subscription snapshot, ping, scheduled timestamp, or last-known position does not establish liveness. Keep finished and stale data explicit.
-- Use no account credentials, paid topics, backend, disk recordings, or telemetry sharing. Respect access denials and Retry-After, with bounded reconnects and manual retry.
+- Use no account credentials, paid topics, backend, or telemetry sharing. Store bounded observed lap snapshots locally as requested. Respect access denials and Retry-After, with bounded reconnects and manual retry.
 - Tyre history describes observed stints; future team strategy and exact stationary pit-stop durations are outside this scope. Provisional timing never updates GP winners or championship points.
 
 Protocol references and dated connection evidence are in `docs/DATA_SOURCES.md` and `docs/VERIFICATION.md`.
@@ -186,6 +186,14 @@ Two interactive concept directions were prepared for review. **Weekend** shows t
 These are proposed designs with illustrative data, not implemented SwiftUI screens or a selected final visual direction. The working title remains provisional. The preview supports calendar selection, screen navigation, timezone changes, and appearance changes; its example championship points and winners are not a live data feed.
 
 ## 12. Historical GP timeline — 30 October 2026
+
+Session selection update: The Grand Prix picker includes the current scheduled weekend, including before the Race. The timeline initially chooses the latest started session and lists only the practice, sprint, qualifying, and Race sessions supplied by that weekend's calendar. Future sessions show an empty state until their scheduled start. OpenF1 history is keyed by the selected session; Jolpica remains a Race-only fallback. Each session has an independent cache key.
+
+Live recording update: Keep the one personal F1 SignalR connection running while either Live timing or Race timeline is visible. For a Started session, record observed lap snapshots under the stream's session identity, persist bounded JSON atomically in local Application Support, and restore the latest recording after relaunch. Prefer the local recording in Race timeline when its session name and date match the selected calendar session. Never infer missing earlier laps; use the historical API for other sessions.
+
+Practice/qualifying correction: Rank all drivers by their best lap time so far, including drivers not currently on track. Record a new chart step only when a driver's best time improves, label the horizontal axis by observed time, and show last and best times in the timing table. Sprint and Grand Prix races retain lap-based history.
+
+Live session clock and pit status: Subscribe to F1's ExtrapolatedClock topic and use its UTC anchor, remaining value, and extrapolating flag for a shared clock in Live timing and Race timeline. Hide the clock when the session is not active. In free practice, use red text below five minutes. Add a pit-status column to both tables from the stream's InPit flag; leave historical values unknown when no live pit state was captured.
 
 The user requested removing all mock data after trying the combined PRs. Retain one installed app. Calendar links directly to the selected GP's Race timeline; a GP picker changes races without returning to Calendar. Only GPs whose race start has passed are selectable; earlier practice sessions do not qualify an upcoming GP. A published GP result can qualify a race with an unknown start time. Cancelled or removed events are excluded, and Calendar uses the same eligibility rule. Positions and Gaps share a full-width lap slider representing the entire available GP lap range. Clearly labelled Previous lap and Next lap buttons sit above it. The bottom timing rows expand to their full height inside the page's only vertical scroll.
 
