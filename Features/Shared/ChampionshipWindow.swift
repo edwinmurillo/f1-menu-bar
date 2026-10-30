@@ -36,7 +36,7 @@ struct ChampionshipWindow: View {
                     case .constructors: StandingsView(snapshot: store.visibleSnapshot, drivers: false, loading: store.isRefreshing,
                         now: store.now, timeZone: preferences.timeZone)
                     case .live: LiveTimingView(store: liveStore, preferences: preferences)
-                    case .timeline: RaceTimelineView(store: liveStore)
+                    case .timeline: RaceTimelineView(store: liveStore, preferences: preferences)
                     case .settings: SettingsView(preferences: preferences, store: store, loginItem: loginItem)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -50,7 +50,7 @@ struct ChampionshipWindow: View {
                     if coordinator.section == .live {
                         Text("Personal live connection")
                     } else if coordinator.section == .timeline {
-                        Text("Recorded race laps · current connection")
+                        Text("Personal timing · Recorded / Demo")
                     } else { Link("OpenF1", destination: URL(string: "https://openf1.org/")!) }
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.vertical, 10)
             }.background(Color(nsColor: .windowBackgroundColor))

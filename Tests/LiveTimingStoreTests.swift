@@ -25,6 +25,36 @@ private actor ControlledLiveFeed: LiveTimingFeed {
 }
 
 @MainActor final class LiveTimingStoreTests: XCTestCase {
+    func testLapHistoryClearsOnNewIdentityBeforeLapOrRosterArrives() async {
+        let feed = ControlledLiveFeed()
+        let store = LiveTimingStore(feed: feed)
+        store.setVisible(true)
+        await feed.waitForRuns(1)
+        var race = LiveTimingSnapshot()
+        race.sessionID = "race-a"; race.sessionName = "Race"; race.currentLap = 20
+        race.drivers = [LiveDriverTiming(id: "1", position: 1, name: "Driver", abbreviation: "DRV",
+            team: "Team", teamColor: nil, gap: nil, interval: nil, laps: 20,
+            lastLap: nil, bestLap: nil, sectors: [], stops: nil, inPit: false,
+            retired: false, knockedOut: false, stints: [])]
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: race), run: 0)
+        XCTAssertEqual(store.lapSnapshots.count, 1)
+        // A reconnect without an identity does not establish a new session.
+        await feed.emit(LiveTimingState(phase: .connecting), run: 0)
+        XCTAssertEqual(store.lapSnapshots.count, 1)
+        var next = LiveTimingSnapshot()
+        next.sessionID = "race-b"; next.sessionName = "Race"
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: next), run: 0)
+        XCTAssertTrue(store.lapSnapshots.isEmpty)
+        race.sessionID = "race-b"
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: race), run: 0)
+        XCTAssertEqual(store.lapSnapshots.count, 1)
+        next.sessionID = "practice"; next.sessionName = "Practice 1"
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: next), run: 0)
+        XCTAssertTrue(store.lapSnapshots.isEmpty)
+        store.stop()
+        await feed.finishAll()
+    }
+
     func testRaceLapLogKeepsObservedLapsAndResetsForNextSession() async {
         let feed = ControlledLiveFeed()
         let store = LiveTimingStore(feed: feed)

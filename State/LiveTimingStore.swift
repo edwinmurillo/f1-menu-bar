@@ -57,12 +57,15 @@ public final class LiveTimingStore {
         }
         state = value
         let snapshot = value.snapshot
+        // SessionInfo can arrive before the lap count or roster. Clear history as
+        // soon as a different identity is known, including a non-Race session.
+        if let sessionID = snapshot.sessionID, loggedSessionID != sessionID {
+            loggedSessionID = sessionID
+            lapSnapshots = [:]
+        }
         if snapshot.sessionName == "Race", let sessionID = snapshot.sessionID,
            let lap = snapshot.currentLap, (1...200).contains(lap), !snapshot.drivers.isEmpty {
-            if loggedSessionID != sessionID {
-                loggedSessionID = sessionID
-                lapSnapshots = [:]
-            }
+            guard loggedSessionID == sessionID else { return }
             lapSnapshots[lap] = snapshot
         }
     }

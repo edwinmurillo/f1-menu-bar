@@ -23,7 +23,7 @@ Built natively with Swift and SwiftUI. No account, API key, or backend setup req
 | **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. During a GP weekend, each table shows “Waiting for this weekend’s results” until its points include that GP. |
 | **Season wins** | Driver qualifying and GP win counts, with event names and country flags. A double win shares one **Quali & GP** badge. Constructors show GP win counts and flags for wins by either driver. |
 | **Personal live timing** | An experimental session table with positions, gaps, lap times, tyre compounds and age, stint history, pit counts, race control, and weather. Connects directly to F1 while the view is visible. |
-| **Recorded race timeline** | Plots positions and gaps from race laps captured by the live connection. The lap table uses each recorded snapshot; missing laps remain absent. History is held in memory until the app closes. |
+| **Race timeline** | Recorded mode replays captured positions and gaps, leaving missing laps absent. An explicit Demo tab adds a 56-lap simulated history and mock race events. Captured rows retain their F1 values and identify their source. Both modes share connection controls. |
 | **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |
 | **Mac preferences** | System, light, or dark appearance; optional launch at login; and manual refresh. |
 | **Saved data and a backup source** | Cached calendars remain available offline. Jolpica takes over when OpenF1 is unavailable, including during its live-session access restrictions. |
@@ -61,9 +61,11 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 1. Click the checkered flag to see the next GP weekend and its session times.
 2. Choose **Full calendar** to browse weekends and published winners.
 3. Choose **Standings** to open driver and constructor points and season wins. Scroll the driver win badges horizontally to see every event; hover a constructor flag for the GP name.
-4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the view, switching sections, or sleeping the Mac stops the connection.
-5. Choose **Race timeline** to review laps recorded while the live connection was open. The Positions chart replays those laps when you open the tab. The Gaps chart shows the recorded top ten over the last five or ten recorded laps. Select a lap to inspect its sortable timing table. The purple marker identifies the quickest best lap in that snapshot.
+4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the window, leaving both timing sections, or sleeping the Mac stops the connection. Switching between Live timing and Race timeline shares the same connection.
+5. Choose **Race timeline**. **Recorded** is the default: review only the laps captured while connected, using Positions, Gaps, lap selection, and the sortable timing table. **Demo** adds simulated missing laps, a fixed 56-lap chart, mock VSC/SC/red flags and retirements, and a regeneration control. Demo events always remain simulated; captured rows retain their reported positions, retirement flags and timing. The Source column distinguishes Recorded, Simulated, and Unavailable rows. Both tabs show connection status, errors, and Connect/Disconnect. The purple marker identifies the quickest available best lap at the selected snapshot.
 6. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
+
+Both timeline modes require the feed to supply a Race roster and lap number; neither downloads a historical lap replay. Captured laps are snapshots during a lap, not a certified end-of-lap classification. The in-memory history is cleared when another session is identified or the app quits. A stopped connection retains its last data with an explicit status.
 
 Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
 
@@ -111,7 +113,7 @@ Builds are written to `.build/DerivedData/Build/Products/<configuration>/F1 Menu
 
 ```text
 App/          Composition, routing, preferences, login items, assets
-Features/     Next weekend, calendar, standings, live timing, settings
+Features/     Next weekend, calendar, standings, live timing, race timeline, settings
 State/        Main-actor season refresh and live connection ownership
 Domain/       Models and time/status policies
 Data/         Season adapters, fallback/cache, bounded SignalR client

@@ -100,3 +100,13 @@ Manual checks: open the installed app, inspect the menu panel and every sidebar 
 ## Distribution
 
 The project uses ad-hoc signing for local development. No Developer ID certificate, notarization, installer, App Store submission, or reboot/login verification has been performed.
+
+
+## Combined race timeline — 30 October 2026
+
+- Reconciled PR #1 (recorded snapshots) and PR #2 (simulation demo) in one Race timeline section, with Recorded selected by default and an explicit Demo tab. Both use the same visibility-owned connection and connection controls/status/error presentation.
+- Fixed simulated retirements masking captured positions, retirement flags, gap and lap values; prevented old-session or wrong-lap snapshots from supplying a row; retained absolute positions in one-driver snapshots; and marked drivers absent from a captured lap Unavailable. Known session changes clear the lap history before a new lap count or roster is required.
+- All 89 optimized tests passed on macOS 27.0.1 and Xcode 27.1: 71 core tests and 18 window/model tests. Coverage includes session transitions, the three reproduced PR defects, row provenance, stale/finished/disconnected presentation, and both timeline layouts at 1000×720 and 1200×900. Light/dark demo fixture renders and a recorded-mode render are saved in `.build/screenshots/` and attached to the test result bundle. These are offscreen native fixture renders, not screenshots of a live race in the installed app.
+- The new long-error layout test reproduced split-view inflation. Bounding the shared connection-error region to a scrollable 64-point area fixed the same probe. Generation, whitespace, universal Release build, signature and static-core packaging checks pass.
+- Version 0.3.0, build 5, replaces the existing `~/Applications/F1 Menu Bar.app`. Its executable matches the verified build. The separate PR1/PR2 test installations were moved to Trash, leaving one F1 app installed. The previous normal app bundle is retained as a rollback under the ignored `.build/install-backup/` folder.
+- Installed-app process launch is checked separately. Interactive visual inspection remains incomplete because native app inspection timed out during PR testing; no new claim is made about live-race capture, keyboard/VoiceOver, or animation feel on the installed app.

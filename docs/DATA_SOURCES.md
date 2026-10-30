@@ -50,3 +50,9 @@ HTTP negotiation uses a separate URLSession with a 30-second resource deadline. 
 Both providers are independent of Formula 1 and the FIA. OpenF1 championship endpoints are in beta. Jolpica data is provided under [CC BY-NC-SA 4.0](https://github.com/jolpica/jolpica-f1/blob/main/TERMS.md); commercial use requires a separate arrangement with that provider. These data terms are separate from this repository’s source-code license, which has not been selected.
 
 The personal timing experiment does not establish permission for redistribution or commercial use. F1’s [guidelines](https://www.formula1.com/en/information/guidelines.4EOKE9RRqevL4niTK9kWyt) and [legal notices](https://www.formula1.com/en/information/legal-notices.7egvZU48hzrypubGBNcQKt) apply independently of whether an endpoint accepts an anonymous connection. Access can change or be withdrawn.
+
+## Race timeline
+
+Recorded mode reads only in-memory snapshots captured by the personal connection; missing laps stay missing. A captured lap is a sample taken during the leader's current lap, not an official end-of-lap classification. There is no historical replay download. History is bounded to laps 1...200 and cleared as soon as a different session identity arrives or the app quits. Live timing and Race timeline share one visibility-owned connection and the same manual pause, freshness and retry rules.
+
+The explicitly selected Demo mode uses a fixed 56-lap illustrative scenario with simulated missing positions, gaps, lap times, tyres, stops, VSC/SC/red flags and retirements. Its event markers remain illustrative even where a real lap was captured. Recorded rows override all simulated positions, retirement flags and timing; absent drivers at a captured lap are Unavailable. The Source column exposes per-row provenance. Simulation never changes the live feed snapshot, winners, championship points, or provider caches.

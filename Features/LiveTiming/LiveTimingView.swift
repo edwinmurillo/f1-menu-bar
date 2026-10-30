@@ -21,30 +21,8 @@ struct LiveTimingView: View {
 
     private func content(tableHeight: CGFloat, minimumHeight: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            HStack(alignment: .top) {
-                SectionHeader(title: "Live timing", subtitle: [snapshot.meetingName, snapshot.sessionName].compactMap { $0 }.joined(separator: " · "))
-                Button(store.isRunning ? "Disconnect" : "Connect") {
-                    if store.isRunning { store.disconnect() } else { store.connect() }
-                }.buttonStyle(.bordered)
-            }
-            TimelineView(.periodic(from: .now, by: 1)) { clock in
-                HStack(spacing: 12) {
-                    Label(status(at: clock.date), systemImage: isLive(at: clock.date) ? "dot.radiowaves.left.and.right" : "clock")
-                        .foregroundStyle(isLive(at: clock.date) ? Color.green : Color.secondary)
-                    if let current = snapshot.currentLap {
-                        Text(snapshot.totalLaps.map { "Lap \(current) / \($0)" } ?? "Lap \(current)").monospacedDigit()
-                    }
-                    if let track = snapshot.trackStatus { Text(track).foregroundStyle(.secondary) }
-                    Spacer()
-                    if let date = snapshot.receivedAt {
-                        Text("Received \(Presentation.date(date, format: "jmmss", zone: preferences.timeZone))")
-                            .foregroundStyle(.secondary).monospacedDigit()
-                    }
-                }.font(.caption)
-            }
-            if let message = store.state.message {
-                IssueBanner(message: message + (store.state.retryAt.map { " Retry after \(Presentation.date($0, format: "jmmss", zone: preferences.timeZone))." } ?? ""))
-            }
+            SectionHeader(title: "Live timing", subtitle: "Experimental personal connection")
+            LiveTimingConnectionHeader(store: store, preferences: preferences)
             if snapshot.drivers.isEmpty {
                 Spacer(minLength: 24)
                 LiveTimingPlaceholder(phase: store.state.phase, isRunning: store.isRunning)
@@ -110,21 +88,6 @@ struct LiveTimingView: View {
         // Give the empty state's spacers a real viewport to center within. Keep
         // the ScrollView so long connection messages can still be reached.
         .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .topLeading)
-    }
-
-    private func isLive(at now: Date) -> Bool { store.state.phase == .connected && snapshot.hasFreshTiming(at: now) }
-    private func status(at now: Date) -> String {
-        switch store.state.phase {
-        case .stopped: return "Disconnected · last received data"
-        case .connecting: return "Connecting…"
-        case .reconnecting: return "Reconnecting · timing may be outdated"
-        case .unavailable: return "Live timing unavailable"
-        case .connected:
-            if isLive(at: now) { return "Live" }
-            if snapshot.hasFinished { return "Session finished · latest available timing" }
-            if snapshot.sessionStatus == "Aborted" { return "Session suspended" }
-            return snapshot.lastTimingUpdate == nil ? "Connected · waiting for fresh timing" : "No recent timing · data may be outdated"
-        }
     }
 
     private func driverDetail(_ driver: LiveDriverTiming) -> some View {

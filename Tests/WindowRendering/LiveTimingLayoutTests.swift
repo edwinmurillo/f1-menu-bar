@@ -23,7 +23,7 @@ import XCTest
         harness.coordinator.section = .live
         await harness.load(snapshot: fixture())
         try harness.assertContentFits()
-        for section in [AppSection.drivers, .constructors, .calendar, .live] {
+        for section in [AppSection.drivers, .constructors, .calendar, .live, .timeline] {
             harness.coordinator.section = section
             try harness.assertContentFits()
         }
@@ -47,6 +47,51 @@ import XCTest
         }
     }
 
+    func testRecordedTimelineFitsAcrossLapsAndDisconnect() async throws {
+        let harness = Harness()
+        addTeardownBlock { await harness.finish() }
+        harness.coordinator.section = .timeline
+        try harness.assertContentFits()
+        var data = fixture()
+        await harness.load(snapshot: data)
+        for lap in [33, 34, 36] {
+            data.currentLap = lap
+            await harness.feed.send(LiveTimingState(phase: .connected, snapshot: data))
+        }
+        await harness.feed.send(LiveTimingState(phase: .reconnecting, snapshot: data,
+            message: String(repeating: "Waiting before reconnecting. ", count: 10)))
+        try harness.assertContentFits()
+        harness.live.disconnect()
+        XCTAssertFalse(harness.live.isRunning)
+        XCTAssertTrue(LiveTimingConnectionPresentation.status(harness.live.state, at: Date()).contains("Disconnected"))
+        for size in [NSSize(width: 1000, height: 720), NSSize(width: 1200, height: 900)] {
+            harness.window.setContentSize(size)
+            try harness.assertContentFits()
+        }
+        try harness.capture(name: "timeline-recorded")
+        harness.coordinator.section = .live
+        try harness.assertContentFits()
+        harness.coordinator.section = .timeline
+        try harness.assertContentFits()
+    }
+
+    func testDemoTimelineFitsInBothAppearancesAfterCapturedDataAndError() async throws {
+        let harness = Harness(demo: true)
+        addTeardownBlock { await harness.finish() }
+        await harness.load(snapshot: fixture())
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            harness.window.appearance = NSAppearance(named: appearance)
+            for size in [NSSize(width: 1000, height: 720), NSSize(width: 1200, height: 900)] {
+                harness.window.setContentSize(size)
+                try harness.assertContentFits()
+            }
+            try harness.capture(name: appearance == .aqua ? "timeline-demo-light" : "timeline-demo-dark")
+        }
+        await harness.feed.send(LiveTimingState(phase: .unavailable, snapshot: fixture(),
+            message: String(repeating: "Waiting before reconnecting. ", count: 10)))
+        try harness.assertContentFits()
+    }
+
     private func fixture() -> LiveTimingSnapshot {
         var value = LiveTimingSnapshot()
         value.sessionID = "fixture-session"
@@ -57,7 +102,7 @@ import XCTest
         value.airTemperature = "24"; value.trackTemperature = "36"
         value.drivers = (1...22).map { number in
             LiveDriverTiming(id: String(number), position: number, name: "Fixture Driver \(number)",
-                abbreviation: "FIX", team: "Fixture Team", teamColor: "FF8000", gap: "+4.123", interval: "+1.234",
+                abbreviation: "F\(number)", team: "Fixture Team", teamColor: "FF8000", gap: "+4.123", interval: "+1.234",
                 laps: 32, lastLap: "1:21.123", bestLap: "1:20.987", sectors: ["25.1", "30.2", "26.3"],
                 stops: 1, inPit: false, retired: false, knockedOut: false,
                 stints: [LiveTyreStint(id: 0, compound: "MEDIUM", tyreAge: 12, initialAge: 0, isNew: true)])
@@ -76,13 +121,22 @@ import XCTest
     let window: NSWindow
     let host: NSHostingView<AnyView>
 
-    init() {
+    init(demo: Bool = false) {
         _ = NSApplication.shared
         live = LiveTimingStore(feed: feed)
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "F1LayoutTests-\(UUID().uuidString)")!)
         let root = ChampionshipWindow(store: season, liveStore: live, preferences: preferences,
             coordinator: coordinator, loginItem: LoginItemController()).frame(minWidth: 1000, minHeight: 720)
-        host = NSHostingView(rootView: AnyView(root))
+        let demoLive = live
+        let demoRoot = NavigationSplitView {
+            Text("Race timeline").frame(minWidth: 165)
+        } detail: {
+            VStack(spacing: 12) {
+                LiveTimingConnectionHeader(store: demoLive, preferences: preferences).padding(20)
+                DemoRaceTimelineView(store: demoLive)
+            }
+        }.frame(minWidth: 1000, minHeight: 720)
+        host = NSHostingView(rootView: demo ? AnyView(demoRoot) : AnyView(root))
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720),
             styleMask: [.titled, .resizable, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -105,6 +159,20 @@ import XCTest
         XCTAssertGreaterThanOrEqual(frame.minY, host.bounds.minY - 1, file: file, line: line)
         XCTAssertLessThanOrEqual(frame.maxY, host.bounds.maxY + 1, file: file, line: line)
         XCTAssertLessThanOrEqual(host.fittingSize.height, host.bounds.height + 1, file: file, line: line)
+    }
+
+    func capture(name: String) throws {
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+            .deletingLastPathComponent().deletingLastPathComponent().appending(path: ".build/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try png.write(to: directory.appending(path: "\(name).png"))
+        let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+        attachment.name = name; attachment.lifetime = .keepAlways
+        XCTContext.runActivity(named: name) { $0.add(attachment) }
     }
 
     private func findSplitView(_ view: NSView) -> NSSplitView? {
