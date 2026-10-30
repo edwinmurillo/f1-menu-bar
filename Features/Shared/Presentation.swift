@@ -111,6 +111,32 @@ struct TyreLabel: View {
     }
 }
 
+struct TyreHistoryLabel: View {
+    let segments: [TyreHistorySegment]?
+
+    private var summary: String {
+        guard let segments, !segments.isEmpty else { return "—" }
+        return segments.map { segment in
+            let compound: String
+            switch segment.compound?.uppercased() {
+            case "SOFT": compound = "S"
+            case "MEDIUM": compound = "M"
+            case "HARD": compound = "H"
+            case "INTERMEDIATE": compound = "I"
+            case "WET": compound = "W"
+            default: compound = "?"
+            }
+            return "(\(compound))" + (segment.completedLaps.map { " \($0)" } ?? "")
+        }.joined(separator: " – ")
+    }
+
+    var body: some View {
+        Text(summary).font(.caption2).monospacedDigit()
+            .fixedSize(horizontal: false, vertical: true)
+            .accessibilityLabel(segments?.isEmpty == false ? "Tyre history: \(summary)" : "Tyre history unavailable")
+    }
+}
+
 struct IssueBanner: View {
     let message: String
     var body: some View {

@@ -51,6 +51,9 @@ struct LiveTimingView: View {
                             Text(driver.currentTyre?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
                         }
                     }.width(100)
+                    TableColumn("Tyre history") { driver in
+                        TyreHistoryLabel(segments: driver.tyreHistory)
+                    }.width(min: 150, ideal: 175)
                     TableColumn("Laps") { driver in Text(driver.laps.map(String.init) ?? "—").monospacedDigit() }.width(36)
                     TableColumn("Stops") { driver in Text(driver.stops.map(String.init) ?? "—").monospacedDigit() }.width(36)
                     TableColumn("Pit") { driver in

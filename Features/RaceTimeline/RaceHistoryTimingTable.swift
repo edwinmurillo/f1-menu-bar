@@ -2,7 +2,7 @@ import F1Core
 import SwiftUI
 
 struct RaceHistoryTimingTable: View {
-    private enum Sort: String { case position = "Pos", driver = "Driver", gap = "Gap", last = "Lap time", best = "Best so far", tyre = "Tyre / age", stops = "Stops", pit = "Pit" }
+    private enum Sort: String { case position = "Pos", driver = "Driver", gap = "Gap", last = "Lap time", best = "Best so far", tyre = "Tyre / age", history = "Tyre history", stops = "Stops", pit = "Pit" }
     let history: RaceHistory
     let lap: Int
     @Binding var highlightedDriver: String?
@@ -28,6 +28,10 @@ struct RaceHistoryTimingTable: View {
             case .last: order = (a.1?.duration ?? .infinity, a.0.name, a.0.id) < (b.1?.duration ?? .infinity, b.0.name, b.0.id)
             case .best: order = (a.1?.bestDuration ?? .infinity, a.0.name, a.0.id) < (b.1?.bestDuration ?? .infinity, b.0.name, b.0.id)
             case .tyre: order = (a.1?.compound ?? "", a.0.name, a.0.id) < (b.1?.compound ?? "", b.0.name, b.0.id)
+            case .history:
+                let first = (a.1?.tyreHistory ?? []).map { $0.compound ?? "" }.joined(separator: "-")
+                let second = (b.1?.tyreHistory ?? []).map { $0.compound ?? "" }.joined(separator: "-")
+                order = (first, a.0.name, a.0.id) < (second, b.0.name, b.0.id)
             case .stops: order = (a.1?.stops ?? .max, a.0.name, a.0.id) < (b.1?.stops ?? .max, b.0.name, b.0.id)
             case .pit:
                 let first = a.1?.inPit == true ? 0 : a.1?.pitOut == true ? 1 : 2
@@ -53,6 +57,7 @@ struct RaceHistoryTimingTable: View {
                     heading(.last, width: 78)
                     heading(.best, width: 82)
                     heading(.tyre, width: 98)
+                    heading(.history, width: 170)
                     heading(.stops, width: 42)
                     heading(.pit, width: 34)
                 }.padding(.horizontal, 10).padding(.vertical, 10)
@@ -78,6 +83,8 @@ struct RaceHistoryTimingTable: View {
                                 TyreLabel(compound: timing?.compound)
                                 Text(timing?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
                             }.frame(width: 98, alignment: .leading)
+                            TyreHistoryLabel(segments: timing?.tyreHistory)
+                                .frame(width: 170, alignment: .leading)
                             Text(timing?.stops.map(String.init) ?? "—").frame(width: 42, alignment: .leading)
                             Text(timing?.inPit == true ? "PIT" : timing?.pitOut == true ? "OUT" : "—")
                                 .foregroundStyle(timing?.inPit == true ? Color.orange : timing?.pitOut == true ? Color.green : Color.secondary)

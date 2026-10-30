@@ -47,9 +47,20 @@ enum OpenF1HistoryMapper {
                 let age = stint.flatMap { stint in stint.tyreAgeAtStart.flatMap { age in
                     (0...200).contains(age) ? age + lap - stint.lapStart + 1 : nil
                 } }
-                timings.append(RaceHistoryTiming(driverID: String(number), position: position, duration: row.lapDuration,
+                var timing = RaceHistoryTiming(driverID: String(number), position: position, duration: row.lapDuration,
                     bestDuration: best[number], gap: gap, compound: stint?.compound, tyreAge: age,
-                    stops: pits.map { $0.filter { $0.driverNumber == number && $0.lapNumber <= lap }.count }))
+                    stops: pits.map { $0.filter { $0.driverNumber == number && $0.lapNumber <= lap }.count })
+                if let stints {
+                    let observed = stints.filter { $0.driverNumber == number && $0.lapStart <= lap }
+                        .sorted { $0.lapStart < $1.lapStart }
+                    timing.tyreHistory = observed.enumerated().map { index, value in
+                        let completed = index < observed.count - 1 ? value.lapEnd.flatMap { end in
+                            end >= value.lapStart ? end - value.lapStart + 1 : nil
+                        } : nil
+                        return TyreHistorySegment(compound: value.compound, completedLaps: completed)
+                    }
+                }
+                timings.append(timing)
             }
             if !timings.isEmpty { normalized.append(RaceHistoryLap(number: lap, timings: timings)) }
         }

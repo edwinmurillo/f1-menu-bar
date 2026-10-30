@@ -12,6 +12,15 @@ public struct LiveTyreStint: Codable, Identifiable, Equatable, Sendable {
     public let isNew: Bool?
 }
 
+public struct TyreHistorySegment: Codable, Equatable, Sendable {
+    public let compound: String?
+    /// Completed laps in this stint. Nil for the current stint or unknown duration.
+    public let completedLaps: Int?
+    public init(compound: String?, completedLaps: Int?) {
+        self.compound = compound; self.completedLaps = completedLaps
+    }
+}
+
 public struct LiveDriverTiming: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let position: Int?
@@ -32,6 +41,15 @@ public struct LiveDriverTiming: Codable, Identifiable, Equatable, Sendable {
     public let stints: [LiveTyreStint]
     public var pitOut: Bool? = nil
     public var currentTyre: LiveTyreStint? { stints.last }
+    public var tyreHistory: [TyreHistorySegment] {
+        let ordered = stints.sorted { $0.id < $1.id }
+        return ordered.enumerated().map { index, stint in
+            let completed = index < ordered.count - 1 ? stint.tyreAge.flatMap { total in
+                stint.initialAge.map { max(0, total - $0) }
+            } : nil
+            return TyreHistorySegment(compound: stint.compound, completedLaps: completed)
+        }
+    }
 }
 
 public struct LiveRaceMessage: Codable, Identifiable, Equatable, Sendable {

@@ -36,6 +36,7 @@ public enum LiveRecordingHistory {
                     compound: driver.currentTyre?.compound,
                     tyreAge: driver.currentTyre?.tyreAge, stops: driver.stops, inPit: driver.inPit)
                 timing.pitOut = driver.pitOut
+                timing.tyreHistory = driver.tyreHistory
                 return timing
             }, recordedAt: isPractice ? snapshot.receivedAt : nil)
         }
