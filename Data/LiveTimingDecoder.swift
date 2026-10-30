@@ -178,13 +178,15 @@ struct LiveTimingReducer {
                     tyreAge: stint["TotalLaps"].int, initialAge: stint["StartLaps"].int, isNew: stint["New"].bool)
             }
             let fullName = person["FullName"].text ?? [person["FirstName"].text, person["LastName"].text].compactMap { $0 }.joined(separator: " ")
-            return LiveDriverTiming(id: number, position: line["Position"].int, name: fullName.isEmpty ? "Driver \(number)" : fullName,
+            var driver = LiveDriverTiming(id: number, position: line["Position"].int, name: fullName.isEmpty ? "Driver \(number)" : fullName,
                 abbreviation: person["Tla"].text ?? number, team: person["TeamName"].text ?? "", teamColor: person["TeamColour"].text,
                 gap: line["GapToLeader"].text, interval: line["IntervalToPositionAhead"]["Value"].text,
                 laps: line["NumberOfLaps"].int, lastLap: line["LastLapTime"]["Value"].text,
                 bestLap: line["BestLapTime"]["Value"].text, sectors: (0..<3).map { line["Sectors"][String($0)]["Value"].text ?? "—" },
                 stops: line["NumberOfPitStops"].int, inPit: line["InPit"].bool == true, retired: line["Retired"].bool == true,
                 knockedOut: line["KnockedOut"].bool == true, stints: stints)
+            driver.pitOut = line["PitOut"].bool
+            return driver
         }.sorted { ($0.position ?? .max, Int($0.id) ?? .max) < ($1.position ?? .max, Int($1.id) ?? .max) }
         result.messages = (topics["RaceControlMessages"]?["Messages"].ordered ?? []).reversed().compactMap { key, value in
             guard let text = value["Message"].text else { return nil }

@@ -30,6 +30,7 @@ public struct LiveDriverTiming: Codable, Identifiable, Equatable, Sendable {
     public let retired: Bool
     public let knockedOut: Bool
     public let stints: [LiveTyreStint]
+    public var pitOut: Bool? = nil
     public var currentTyre: LiveTyreStint? { stints.last }
 }
 

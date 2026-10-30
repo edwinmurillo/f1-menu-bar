@@ -41,17 +41,29 @@ final class LiveTimingTests: XCTestCase {
     func testSparseUpdatesKeepUnchangedFieldsAndMergeIndexedArrays() throws {
         var reducer = LiveTimingReducer()
         try reducer.seed(json(initial), receivedAt: now)
-        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Position":"1","InPit":"true","Sectors":{"1":{"Value":"30.4"}}}}}"#), timestamp: now, receivedAt: now)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Position":"1","InPit":"true","PitOut":false,"Sectors":{"1":{"Value":"30.4"}}}}}"#), timestamp: now, receivedAt: now)
         try reducer.apply(topic: "TimingAppData", value: json(#"{"Lines":{"4":{"Stints":{"0":{"TotalLaps":13},"1":{"Compound":"HARD","TotalLaps":1,"New":true}}}}}"#), timestamp: now, receivedAt: now)
         let value = reducer.snapshot(), driver = try XCTUnwrap(value.drivers.first)
         XCTAssertEqual(driver.position, 1)
         XCTAssertEqual(driver.lastLap, "1:30.123")
         XCTAssertEqual(driver.sectors, ["28.1", "30.4", "30.8"])
         XCTAssertTrue(driver.inPit)
+        XCTAssertEqual(driver.pitOut, false)
         XCTAssertEqual(driver.stints.map(\.compound), ["SOFT", "HARD"])
         XCTAssertEqual(driver.stints.first?.tyreAge, 13)
         XCTAssertTrue(value.hasFreshTiming(at: now.addingTimeInterval(30)))
         XCTAssertFalse(value.hasFreshTiming(at: now.addingTimeInterval(31)))
+    }
+
+    func testPitOutFlagAppearsAndClearsOnSparseTimingUpdates() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(initial), receivedAt: now)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"InPit":false,"PitOut":true}}}"#),
+            timestamp: now, receivedAt: now)
+        XCTAssertEqual(reducer.snapshot().drivers.first?.pitOut, true)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"PitOut":false}}}"#),
+            timestamp: now.addingTimeInterval(1), receivedAt: now.addingTimeInterval(1))
+        XCTAssertEqual(reducer.snapshot().drivers.first?.pitOut, false)
     }
 
     func testOldTimingAndOtherTopicsCannotMakeDataFresh() throws {

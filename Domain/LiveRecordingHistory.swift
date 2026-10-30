@@ -28,13 +28,15 @@ public enum LiveRecordingHistory {
             let leader = best.first?.1
             return RaceHistoryLap(number: number, timings: snapshot.drivers.map { driver in
                 let bestTime = driver.bestLap.flatMap(LapDuration.seconds)
-                return RaceHistoryTiming(driverID: driver.id,
+                var timing = RaceHistoryTiming(driverID: driver.id,
                     position: isPractice ? ranked[driver.id] : driver.position,
                     duration: driver.lastLap.flatMap(LapDuration.seconds),
                     bestDuration: bestTime,
                     gap: isPractice ? bestTime.flatMap { time in leader.map { .seconds(max(0, time - $0)) } } : gap(driver.gap),
                     compound: driver.currentTyre?.compound,
                     tyreAge: driver.currentTyre?.tyreAge, stops: driver.stops, inPit: driver.inPit)
+                timing.pitOut = driver.pitOut
+                return timing
             }, recordedAt: isPractice ? snapshot.receivedAt : nil)
         }
         return RaceHistory(request: request, provider: .openF1, sourceID: "live:\(recording.sessionID)",

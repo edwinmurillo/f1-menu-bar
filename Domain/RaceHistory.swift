@@ -47,6 +47,7 @@ public struct RaceHistoryTiming: Codable, Equatable, Sendable {
     public let tyreAge: Int?
     public let stops: Int?
     public var inPit: Bool? = nil
+    public var pitOut: Bool? = nil
 }
 
 public enum RaceHistoryGap: Codable, Equatable, Sendable {

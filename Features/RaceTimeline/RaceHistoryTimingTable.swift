@@ -29,7 +29,10 @@ struct RaceHistoryTimingTable: View {
             case .best: order = (a.1?.bestDuration ?? .infinity, a.0.name, a.0.id) < (b.1?.bestDuration ?? .infinity, b.0.name, b.0.id)
             case .tyre: order = (a.1?.compound ?? "", a.0.name, a.0.id) < (b.1?.compound ?? "", b.0.name, b.0.id)
             case .stops: order = (a.1?.stops ?? .max, a.0.name, a.0.id) < (b.1?.stops ?? .max, b.0.name, b.0.id)
-            case .pit: order = (a.1?.inPit == true ? 0 : 1, a.0.name, a.0.id) < (b.1?.inPit == true ? 0 : 1, b.0.name, b.0.id)
+            case .pit:
+                let first = a.1?.inPit == true ? 0 : a.1?.pitOut == true ? 1 : 2
+                let second = b.1?.inPit == true ? 0 : b.1?.pitOut == true ? 1 : 2
+                order = (first, a.0.name, a.0.id) < (second, b.0.name, b.0.id)
             }
             return ascending ? order : !order
         }
@@ -76,8 +79,8 @@ struct RaceHistoryTimingTable: View {
                                 Text(timing?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
                             }.frame(width: 98, alignment: .leading)
                             Text(timing?.stops.map(String.init) ?? "—").frame(width: 42, alignment: .leading)
-                            Text(timing?.inPit == true ? "PIT" : "—")
-                                .foregroundStyle(timing?.inPit == true ? Color.orange : Color.secondary)
+                            Text(timing?.inPit == true ? "PIT" : timing?.pitOut == true ? "OUT" : "—")
+                                .foregroundStyle(timing?.inPit == true ? Color.orange : timing?.pitOut == true ? Color.green : Color.secondary)
                                 .frame(width: 34, alignment: .leading)
                         }
                         .font(.callout).monospacedDigit()

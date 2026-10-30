@@ -12,8 +12,9 @@ final class LiveSessionRecordingTests: XCTestCase {
                          driver("2", lap: 0, position: 2, best: nil)]
         recording.record(first, at: start.addingTimeInterval(60))
         var second = first
-        second.drivers = [driver("1", lap: 2, position: 2, best: "1:20.100"),
-                          driver("2", lap: 1, position: 1, best: "1:19.900")]
+        var outLap = driver("2", lap: 1, position: 1, best: "1:19.900")
+        outLap.pitOut = true
+        second.drivers = [driver("1", lap: 2, position: 2, best: "1:20.100"), outLap]
         recording.record(second, at: start.addingTimeInterval(120))
         recording.record(second, at: start.addingTimeInterval(130))
         XCTAssertEqual(recording.recordedStepCount, 2, "Unchanged best times must not create a step")
@@ -31,6 +32,7 @@ final class LiveSessionRecordingTests: XCTestCase {
         XCTAssertEqual(history.laps[1].timings.first(where: { $0.driverID == "1" })?.position, 2)
         XCTAssertEqual(history.laps[1].timings.first(where: { $0.driverID == "1" })?.bestDuration, 80.1)
         XCTAssertEqual(history.laps[1].timings.first(where: { $0.driverID == "2" })?.inPit, false)
+        XCTAssertEqual(history.laps[1].timings.first(where: { $0.driverID == "2" })?.pitOut, true)
         XCTAssertNil(LiveRecordingHistory.make(recording, request: RaceHistoryRequest(
             weekend: request.weekend, provider: .openF1, sessionID: 12)))
     }
