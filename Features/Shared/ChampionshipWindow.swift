@@ -16,7 +16,7 @@ struct ChampionshipWindow: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             List(selection: Binding<AppSection?>(get: { coordinator.section }, set: { if let value = $0 { coordinator.section = value } })) {
                 Section("Championship") {
-                    ForEach([AppSection.calendar, .drivers, .constructors, .live]) { section in
+                    ForEach([AppSection.calendar, .drivers, .constructors, .live, .timeline]) { section in
                         Label(section.title, systemImage: section.symbol).tag(section)
                     }
                 }
@@ -36,6 +36,7 @@ struct ChampionshipWindow: View {
                     case .constructors: StandingsView(snapshot: store.visibleSnapshot, drivers: false, loading: store.isRefreshing,
                         now: store.now, timeZone: preferences.timeZone)
                     case .live: LiveTimingView(store: liveStore, preferences: preferences)
+                    case .timeline: RaceTimelineView(store: liveStore)
                     case .settings: SettingsView(preferences: preferences, store: store, loginItem: loginItem)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -48,6 +49,8 @@ struct ChampionshipWindow: View {
                     if store.isRefreshing { ProgressView().controlSize(.mini) }
                     if coordinator.section == .live {
                         Text("Personal live connection")
+                    } else if coordinator.section == .timeline {
+                        Text("Recorded laps · simulated missing laps")
                     } else { Link("OpenF1", destination: URL(string: "https://openf1.org/")!) }
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.vertical, 10)
             }.background(Color(nsColor: .windowBackgroundColor))
@@ -55,11 +58,11 @@ struct ChampionshipWindow: View {
         .navigationSplitViewStyle(.balanced)
         .background(WindowVisibilityReader { visible in
             isWindowVisible = visible
-            liveStore.setVisible(visible && coordinator.section == .live)
+            liveStore.setVisible(visible && (coordinator.section == .live || coordinator.section == .timeline))
         }.frame(width: 0, height: 0))
         .navigationTitle("F1 Menu Bar")
         .toolbar {
-            if coordinator.section != .settings && coordinator.section != .live {
+            if coordinator.section != .settings && coordinator.section != .live && coordinator.section != .timeline {
                 ToolbarItem(placement: .principal) {
                     if store.availableSeasons.count > 1 {
                         Picker("Season", selection: Binding(get: { store.visibleSnapshot.year }, set: { store.displayYear = $0 })) {
@@ -71,7 +74,7 @@ struct ChampionshipWindow: View {
                     }
                 }
             }
-            if coordinator.section != .live {
+            if coordinator.section != .live && coordinator.section != .timeline {
                 ToolbarItem(placement: .primaryAction) {
                     Button { Task { await store.refresh(force: true) } } label: { Label("Refresh", systemImage: "arrow.clockwise") }
                         .labelStyle(.iconOnly).frame(width: 32, height: 28)
@@ -87,7 +90,7 @@ struct ChampionshipWindow: View {
         .onChange(of: coordinator.section) { _, section in
             logger.info("Navigate section=\(section.rawValue, privacy: .public) windowVisible=\(isWindowVisible)")
             columnVisibility = .all
-            liveStore.setVisible(isWindowVisible && section == .live)
+            liveStore.setVisible(isWindowVisible && (section == .live || section == .timeline))
         }
         .onChange(of: coordinator.navigationRevision) { _, _ in columnVisibility = .all }
         .onDisappear {
@@ -98,13 +101,14 @@ struct ChampionshipWindow: View {
 
     private var freshness: String {
         if coordinator.section == .live { return "Timing is separate from published standings" }
+        if coordinator.section == .timeline { return "Live timing snapshots · simulated gaps in the log" }
         if store.isRefreshing { return "Refreshing…" }
         let snapshot = store.visibleSnapshot
         let date: Date?
         switch coordinator.section {
         case .drivers: date = snapshot.driverContext?.updatedAt
         case .constructors: date = snapshot.constructorContext?.updatedAt
-        case .calendar, .settings, .live: date = snapshot.scheduleUpdatedAt
+        case .calendar, .settings, .live, .timeline: date = snapshot.scheduleUpdatedAt
         }
         return date.map { "Updated \(Presentation.date($0, format: "d MMM jmm", zone: preferences.timeZone))" } ?? "Waiting for published data"
     }

@@ -6,12 +6,14 @@ import OSLog
 public final class LiveTimingStore {
     public private(set) var state = LiveTimingState()
     public private(set) var isRunning = false
+    public private(set) var lapSnapshots: [Int: LiveTimingSnapshot] = [:]
     @ObservationIgnored private let feed: any LiveTimingFeed
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var visible = false
     @ObservationIgnored private var suspended = false
     @ObservationIgnored private var paused = false
+    @ObservationIgnored private var loggedSessionID: String?
     @ObservationIgnored private let logger = Logger(subsystem: "com.murilloarturo.f1menubar", category: "LiveConnection")
 
     public init(feed: any LiveTimingFeed) { self.feed = feed }
@@ -54,5 +56,14 @@ public final class LiveTimingStore {
             logger.info("Phase=\(String(describing: value.phase), privacy: .public) drivers=\(value.snapshot.drivers.count)")
         }
         state = value
+        let snapshot = value.snapshot
+        if snapshot.sessionName == "Race", let sessionID = snapshot.sessionID,
+           let lap = snapshot.currentLap, (1...200).contains(lap), !snapshot.drivers.isEmpty {
+            if loggedSessionID != sessionID {
+                loggedSessionID = sessionID
+                lapSnapshots = [:]
+            }
+            lapSnapshots[lap] = snapshot
+        }
     }
 }
