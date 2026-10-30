@@ -12,13 +12,16 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
     }
     public func cached(_ request: RaceHistoryRequest) async throws -> RaceHistory? { try await cache.load(request) }
     public func fetch(_ request: RaceHistoryRequest) async throws -> RaceHistory {
+        try await fetch(request, publish: { _ in })
+    }
+    public func fetch(_ request: RaceHistoryRequest, publish: @escaping @Sendable (RaceHistory) async -> Void) async throws -> RaceHistory {
         guard (1950...9999).contains(request.weekend.year), !request.weekend.isCancelled,
               !request.weekend.isMissingFromSchedule else { return empty(request, provider: request.calendarProvider) }
         if let start = request.weekend.grandPrix?.start, start > now() { return empty(request, provider: request.calendarProvider) }
         var primary: RaceHistory?
         var primaryIssue: String?
         do {
-            let candidate = try await openHistory(request)
+            let candidate = try await openHistory(request, publish: publish)
             if !candidate.laps.isEmpty { primary = candidate }
         } catch is CancellationError { throw CancellationError() }
         catch { primaryIssue = error.localizedDescription }
@@ -31,6 +34,7 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
             } catch is CancellationError { throw CancellationError() }
             catch { throw APIError.invalidData("OpenF1: \(primaryIssue ?? "no lap history returned"). Jolpica: \(error.localizedDescription)") }
         }
+        value.detailsComplete = true
         try Task.checkCancellation()
         guard value.isValid else { throw APIError.invalidData("invalid normalized race history") }
         do { try await cache.save(value) }
@@ -54,13 +58,18 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
         return matching.first?.sessionKey
     }
 
-    private func openHistory(_ request: RaceHistoryRequest) async throws -> RaceHistory {
+    private func openHistory(_ request: RaceHistoryRequest, publish: @escaping @Sendable (RaceHistory) async -> Void) async throws -> RaceHistory {
         guard let session = try await openSession(request) else { return empty(request, provider: .openF1) }
         let query = [URLQueryItem(name: "session_key", value: String(session))]
         let laps: [HistoricalLapDTO] = try await openF1.get("laps", query: query)
         guard !laps.isEmpty else { return empty(request, provider: .openF1) }
         let positions: [HistoricalPositionDTO] = try await openF1.get("position", query: query)
         let drivers: [HistoricalDriverDTO] = try await openF1.get("drivers", query: query)
+        var preview = try OpenF1HistoryMapper.map(request: request, session: session, laps: laps, positions: positions,
+            drivers: drivers, intervals: [], stints: nil, pits: nil, control: [], updatedAt: now())
+        guard !preview.needsPositionRepair else { throw APIError.invalidData("incomplete OpenF1 position history") }
+        preview.detailsComplete = false
+        await publish(preview)
         var limitations: [String] = []
         let stints: [HistoricalStintDTO]? = try await optional("Tyre history", issues: &limitations) { try await self.openF1.get("stints", query: query) }
         let pits: [HistoricalPitDTO]? = try await optional("Pit history", issues: &limitations) { try await self.openF1.get("pit", query: query) }

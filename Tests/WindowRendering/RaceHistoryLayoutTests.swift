@@ -71,6 +71,30 @@ import XCTest
         XCTAssertEqual(scrollViews(host).count, 1)
         try capture(host, name: "history-empty")
     }
+    func testUnknownTeamColoursStayVisibleOnTheBlackPlot() throws {
+        _ = NSApplication.shared
+        let source = fixtureHistory(fixtureRequest())
+        let drivers = source.drivers.map { RaceHistoryDriver(id: $0.id, name: $0.name,
+            abbreviation: $0.abbreviation, team: $0.team, teamColor: nil) }
+        let history = RaceHistory(request: source.request, provider: .jolpica, sourceID: "test", drivers: drivers,
+            laps: source.laps, events: [], updatedAt: source.updatedAt)
+        let host = NSHostingView(rootView: RaceHistoryChart(history: history, selectedLap: history.lastLap,
+            highlightedDriver: nil, kind: .positions, gapWindow: 10, selectLap: { _ in }))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 400), styleMask: [], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.appearance = NSAppearance(named: .aqua); window.contentView = host
+        defer { window.contentView = nil; window.close() }
+        host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let x = bitmap.pixelsWide / 2
+        let bright = (0..<bitmap.pixelsHigh).filter { y in
+            guard let colour = bitmap.colorAt(x: x, y: y)?.usingColorSpace(.deviceRGB) else { return false }
+            return colour.redComponent > 0.65 && colour.greenComponent > 0.65 && colour.blueComponent > 0.65
+        }.count
+        XCTAssertGreaterThan(bright, 20, "Unknown team colours must produce visible traces even in light appearance")
+        try capture(host, name: "history-unknown-colours")
+    }
+
     private func fixtureRequest() -> RaceHistoryRequest {
         RaceHistoryRequest(weekend: RaceWeekend(id: 1, year: 2026, name: "British Grand Prix",
             circuit: "Silverstone", country: "United Kingdom", sessions: [RaceSession(id: 10, name: "Race", start: Date(timeIntervalSince1970: 1_770_000_000))]), provider: .openF1)

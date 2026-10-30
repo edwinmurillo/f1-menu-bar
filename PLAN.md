@@ -194,3 +194,7 @@ Use OpenF1's historical laps, position, intervals, drivers, stints, pit and race
 Use Jolpica's paginated lap endpoint and same-race result directory/pit stops as a complete alternative if the OpenF1 snapshot is unavailable. Count Timing rows across pages, including a lap split at a page boundary. Keep identities and caches scoped by provider, calendar selection, year, race and schema. Do not mix provider rows. Unsupported gaps, tyres and race-control events remain unavailable in Jolpica mode. Missing, upcoming, cancelled and failed histories need clear empty/error states with retry and another GP selection.
 
 One injected history store owns cancellation, coalescing, cache-first display, forced refresh and stale-request rejection. A slow response for a previous GP cannot replace the selected GP. Keep the last good history after refresh failures and do not overwrite it with an empty response. The historical UI never starts the personal live WebSocket connection.
+
+### History loading and cache refinement
+
+Retain completed GP histories across launches without hourly re-downloads; keep four recent races in memory and offer explicit Refresh for revisions. Publish essential real lap positions and times before the slower details requests finish. Repair sparse saved histories that cannot form any consecutive position trace, while preserving actual missing laps. Use visible neutral plot styling for unknown team colours and draw isolated samples without joining across unobserved laps.

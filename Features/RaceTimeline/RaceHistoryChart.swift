@@ -83,16 +83,19 @@ struct RaceHistoryChart: View {
         context.stroke(cursor, with: .color(.white.opacity(0.45)), lineWidth: 1)
         for driver in drivers {
             var line = Path(); var previous: Int?; var endpoint: CGPoint?
+            let faded = highlightedDriver != nil && highlightedDriver != driver.id
+            // The plot is always black; semantic secondary can be black in light mode.
+            let color = driver.teamColor.flatMap { $0.count == 6 && UInt32($0, radix: 16) != nil ? Presentation.color(hex: $0) : nil } ?? .white
             for lap in shownLaps {
                 let timing = lap.timings.first { $0.driverID == driver.id }
                 let value = kind == .positions ? timing?.position.map(Double.init) : timing?.gap?.seconds
                 guard let value else { previous = nil; continue }
                 let point = CGPoint(x: x(lap.number), y: y(value))
                 if previous == lap.number - 1 { line.addLine(to: point) } else { line.move(to: point) }
+                context.fill(Path(ellipseIn: CGRect(x: point.x - 1.5, y: point.y - 1.5, width: 3, height: 3)),
+                             with: .color(color.opacity(faded ? 0.14 : 0.85)))
                 previous = lap.number; endpoint = point
             }
-            let faded = highlightedDriver != nil && highlightedDriver != driver.id
-            let color = Presentation.color(hex: driver.teamColor)
             context.stroke(line, with: .color(color.opacity(faded ? 0.14 : 0.95)), lineWidth: highlightedDriver == driver.id ? 3 : 1.8)
             if let endpoint {
                 context.fill(Path(ellipseIn: CGRect(x: endpoint.x - 2.5, y: endpoint.y - 2.5, width: 5, height: 5)), with: .color(color.opacity(faded ? 0.2 : 1)))

@@ -74,6 +74,19 @@ public struct RaceHistory: Codable, Equatable, Sendable {
     public let events: [RaceHistoryEvent]
     public let updatedAt: Date
     public var limitations: [String] = []
+    /// nil is a legacy fully-loaded snapshot; false is a progressive preview.
+    public var detailsComplete: Bool? = nil
+    public var hasConnectedPositions: Bool {
+        var prior: [String: Int] = [:]
+        for lap in laps {
+            for row in lap.timings where row.position != nil {
+                if prior[row.driverID] == lap.number - 1 { return true }
+                prior[row.driverID] = lap.number
+            }
+        }
+        return false
+    }
+    public var needsPositionRepair: Bool { !laps.isEmpty && lastLap > 1 && !hasConnectedPositions }
     public var lastLap: Int { laps.last?.number ?? 0 }
     public var positionsCount: Int {
         max(drivers.count, laps.flatMap(\.timings).compactMap(\.position).max() ?? 1)
@@ -104,6 +117,13 @@ public struct RaceHistory: Codable, Equatable, Sendable {
 public protocol RaceHistoryRepository: Sendable {
     func cached(_ request: RaceHistoryRequest) async throws -> RaceHistory?
     func fetch(_ request: RaceHistoryRequest) async throws -> RaceHistory
+    func fetch(_ request: RaceHistoryRequest, publish: @escaping @Sendable (RaceHistory) async -> Void) async throws -> RaceHistory
+}
+
+extension RaceHistoryRepository {
+    public func fetch(_ request: RaceHistoryRequest, publish: @escaping @Sendable (RaceHistory) async -> Void) async throws -> RaceHistory {
+        try await fetch(request)
+    }
 }
 
 public enum LapDuration {

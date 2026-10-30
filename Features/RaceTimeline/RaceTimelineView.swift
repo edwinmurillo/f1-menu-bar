@@ -35,7 +35,7 @@ struct RaceTimelineView: View {
                     if let issue = historyStore.issue { IssueBanner(message: issue) }
                     if let history = historyStore.history, history.request.key == selected?.key, !history.laps.isEmpty {
                         RaceHistoryContent(history: history, selectedLap: $selectedLap,
-                            highlightedDriver: $highlightedDriver, chartHeight: min(460, max(320, viewport.size.height * 0.54)))
+                            highlightedDriver: $highlightedDriver, loadingDetails: historyStore.isLoading && history.detailsComplete == false, chartHeight: min(460, max(320, viewport.size.height * 0.54)))
                         historyFooter(history)
                     } else { emptyState.frame(maxWidth: .infinity, minHeight: max(280, viewport.size.height - 170)) }
                 }
@@ -81,7 +81,7 @@ struct RaceTimelineView: View {
                     }
                 }.pickerStyle(.menu).disabled(options.isEmpty).frame(maxWidth: 420, alignment: .leading)
                 Spacer()
-                if historyStore.isLoading { ProgressView().controlSize(.small); Text("Loading history…").font(.caption).foregroundStyle(.secondary) }
+                if historyStore.isLoading { ProgressView().controlSize(.small); Text(historyStore.history?.laps.isEmpty == false ? "Loading details…" : "Loading history…").font(.caption).foregroundStyle(.secondary) }
                 else if let history = historyStore.history, !history.laps.isEmpty {
                     Label(Presentation.providerName(history.provider), systemImage: "externaldrive.badge.checkmark")
                         .font(.caption).foregroundStyle(.secondary)
@@ -125,6 +125,10 @@ struct RaceTimelineView: View {
 
     private func historyFooter(_ history: RaceHistory) -> some View {
         VStack(alignment: .leading, spacing: 7) {
+            if history.detailsComplete == false {
+                Text(historyStore.isLoading ? "Lap positions and times are ready. Gaps, tyres and race-control details are still loading." : "Some details have not loaded. Use Refresh to try again.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
             ForEach(history.limitations, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }
             Text(history.provider == .openF1
                  ? "Positions and gaps are sampled at each driver’s approximate lap boundary. Missing values remain unavailable."
@@ -143,6 +147,7 @@ struct RaceHistoryContent: View {
     let history: RaceHistory
     @Binding var selectedLap: Int
     @Binding var highlightedDriver: String?
+    var loadingDetails = false
     var chartHeight: CGFloat = 400
     @State private var chartTab = RaceHistoryChart.Kind.positions
     @State private var gapWindow = 10
@@ -198,7 +203,13 @@ struct RaceHistoryContent: View {
                     Label(history.drivers.first { $0.id == highlightedDriver }?.abbreviation ?? "All drivers", systemImage: "line.3.horizontal.decrease")
                 }.menuStyle(.borderlessButton).fixedSize()
             }
-            if chartTab == .gaps && !history.laps.contains(where: { $0.timings.contains { $0.gap?.seconds != nil } }) {
+            if chartTab == .gaps && loadingDetails {
+                VStack(spacing: 12) {
+                    ProgressView()
+                    Text("Loading recorded gaps…").font(.headline)
+                    Text("Positions and lap times are already available.").font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).frame(height: chartHeight)
+            } else if chartTab == .gaps && !history.laps.contains(where: { $0.timings.contains { $0.position != 1 && $0.gap?.seconds != nil } }) {
                 ContentUnavailableView("Gap data isn’t available", systemImage: "chart.line.uptrend.xyaxis",
                     description: Text("This source provides real lap times and positions, but no usable gap samples for this race."))
                     .frame(height: chartHeight)
