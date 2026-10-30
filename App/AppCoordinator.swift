@@ -3,15 +3,22 @@ import Observation
 import SwiftUI
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case calendar, drivers, constructors, live, settings
+    case calendar, drivers, constructors, live, timeline, settings
     var id: String { rawValue }
-    var title: String { self == .live ? "Live timing" : rawValue.capitalized }
+    var title: String {
+        switch self {
+        case .live: "Live timing"
+        case .timeline: "Race timeline"
+        default: rawValue.capitalized
+        }
+    }
     var symbol: String {
         switch self {
         case .calendar: "calendar"
         case .drivers: "person.crop.circle"
         case .constructors: "flag.checkered"
         case .live: "dot.radiowaves.left.and.right"
+        case .timeline: "chart.xyaxis.line"
         case .settings: "slider.horizontal.3"
         }
     }

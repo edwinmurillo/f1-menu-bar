@@ -23,6 +23,7 @@ Built natively with Swift and SwiftUI. No account, API key, or backend setup req
 | **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. During a GP weekend, each table shows “Waiting for this weekend’s results” until its points include that GP. |
 | **Season wins** | Driver qualifying and GP win counts, with event names and country flags. A double win shares one **Quali & GP** badge. Constructors show GP win counts and flags for wins by either driver. |
 | **Personal live timing** | An experimental session table with positions, gaps, lap times, tyre compounds and age, stint history, pit counts, race control, and weather. Connects directly to F1 while the view is visible. |
+| **Recorded race timeline** | Plots positions and gaps from race laps captured by the live connection. The lap table uses each recorded snapshot; missing laps remain absent. History is held in memory until the app closes. |
 | **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |
 | **Mac preferences** | System, light, or dark appearance; optional launch at login; and manual refresh. |
 | **Saved data and a backup source** | Cached calendars remain available offline. Jolpica takes over when OpenF1 is unavailable, including during its live-session access restrictions. |
@@ -61,7 +62,8 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 2. Choose **Full calendar** to browse weekends and published winners.
 3. Choose **Standings** to open driver and constructor points and season wins. Scroll the driver win badges horizontally to see every event; hover a constructor flag for the GP name.
 4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the view, switching sections, or sleeping the Mac stops the connection.
-5. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
+5. Choose **Race timeline** to review laps recorded while the live connection was open. The Positions chart replays those laps when you open the tab. The Gaps chart shows the recorded top ten over the last five or ten recorded laps. Select a lap to inspect its sortable timing table. The purple marker identifies the quickest best lap in that snapshot.
+6. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
 Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
 

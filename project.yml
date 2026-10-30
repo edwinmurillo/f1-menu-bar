@@ -23,7 +23,9 @@ targets:
       - State
     settings:
       base:
+        PRODUCT_NAME: F1Core
         PRODUCT_BUNDLE_IDENTIFIER: com.murilloarturo.f1menubar.core
+        PRODUCT_MODULE_NAME: F1Core
         SKIP_INSTALL: YES
   F1MenuBar:
     type: application
@@ -59,6 +61,7 @@ targets:
         embed: false
     settings:
       base:
+        PRODUCT_NAME: F1CoreTests
         PRODUCT_BUNDLE_IDENTIFIER: com.murilloarturo.f1menubar.tests
   F1WindowTests:
     type: bundle.unit-test
@@ -74,6 +77,7 @@ targets:
         embed: false
     settings:
       base:
+        PRODUCT_NAME: F1WindowTests
         PRODUCT_BUNDLE_IDENTIFIER: com.murilloarturo.f1menubar.windowtests
 schemes:
   F1MenuBar:

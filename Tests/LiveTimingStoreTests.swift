@@ -25,6 +25,33 @@ private actor ControlledLiveFeed: LiveTimingFeed {
 }
 
 @MainActor final class LiveTimingStoreTests: XCTestCase {
+    func testRaceLapLogKeepsObservedLapsAndResetsForNextSession() async {
+        let feed = ControlledLiveFeed()
+        let store = LiveTimingStore(feed: feed)
+        store.setVisible(true)
+        await feed.waitForRuns(1)
+        func snapshot(session: String, lap: Int, position: Int) -> LiveTimingSnapshot {
+            var value = LiveTimingSnapshot()
+            value.sessionID = session
+            value.sessionName = "Race"
+            value.currentLap = lap
+            value.drivers = [LiveDriverTiming(id: "44", position: position, name: "Test Driver",
+                abbreviation: "TST", team: "Test", teamColor: nil, gap: nil, interval: nil,
+                laps: lap, lastLap: nil, bestLap: nil, sectors: [], stops: nil,
+                inPit: false, retired: false, knockedOut: false, stints: [])]
+            return value
+        }
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: snapshot(session: "a", lap: 1, position: 3)), run: 0)
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: snapshot(session: "a", lap: 2, position: 2)), run: 0)
+        XCTAssertEqual(store.lapSnapshots[1]?.drivers.first?.position, 3)
+        XCTAssertEqual(store.lapSnapshots[2]?.drivers.first?.position, 2)
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: snapshot(session: "b", lap: 1, position: 1)), run: 0)
+        XCTAssertEqual(store.lapSnapshots.count, 1)
+        XCTAssertEqual(store.lapSnapshots[1]?.drivers.first?.position, 1)
+        store.stop()
+        await feed.finishAll()
+    }
+
     func testOneConnectionAndLateCancelledUpdatesCannotReplaceReopenedView() async {
         let feed = ControlledLiveFeed()
         let subject = LiveTimingStore(feed: feed)
