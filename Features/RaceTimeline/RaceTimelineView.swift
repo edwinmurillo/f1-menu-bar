@@ -10,7 +10,8 @@ struct RaceTimelineView: View {
     @State private var highlightedDriver: String?
 
     private var options: [RaceHistoryRequest] {
-        season.visibleSnapshot.weekends.map { RaceHistoryRequest(weekend: $0, provider: season.visibleSnapshot.provider) }
+        season.visibleSnapshot.weekends.filter { $0.isEligibleForTimeline(at: season.now) }
+            .map { RaceHistoryRequest(weekend: $0, provider: season.visibleSnapshot.provider) }
     }
     private var selected: RaceHistoryRequest? {
         if let requested = coordinator.timelineRequest {
@@ -74,10 +75,11 @@ struct RaceTimelineView: View {
                 Picker("Grand Prix", selection: Binding(get: { selected?.key ?? "" }, set: { key in
                     coordinator.timelineRequest = options.first { $0.key == key }
                 })) {
+                    if options.isEmpty { Text("No past Grands Prix").tag("") }
                     ForEach(options, id: \.key) { option in
                         Text(option.weekend.name + (option.weekend.isCancelled ? " · Cancelled" : "")).tag(option.key)
                     }
-                }.pickerStyle(.menu).frame(maxWidth: 420, alignment: .leading)
+                }.pickerStyle(.menu).disabled(options.isEmpty).frame(maxWidth: 420, alignment: .leading)
                 Spacer()
                 if historyStore.isLoading { ProgressView().controlSize(.small); Text("Loading history…").font(.caption).foregroundStyle(.secondary) }
                 else if let history = historyStore.history, !history.laps.isEmpty {
@@ -101,8 +103,8 @@ struct RaceTimelineView: View {
                 Text("Fetching laps, positions and available timing details.").foregroundStyle(.secondary)
             }
         } else if selected == nil {
-            ContentUnavailableView("Choose a Grand Prix", systemImage: "flag.checkered",
-                description: Text("Race weekends will appear when the season calendar is available."))
+            ContentUnavailableView("No past Grands Prix yet", systemImage: "flag.checkered",
+                description: Text("Only races whose Grand Prix start has passed are available here. Upcoming races remain in Calendar."))
         } else if selected?.weekend.isCancelled == true || selected?.weekend.isMissingFromSchedule == true {
             ContentUnavailableView("No race history for this event", systemImage: "calendar.badge.exclamationmark",
                 description: Text("This Grand Prix is cancelled or unavailable in the latest calendar."))

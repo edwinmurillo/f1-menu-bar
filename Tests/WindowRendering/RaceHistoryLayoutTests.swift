@@ -7,7 +7,7 @@ import XCTest
     func testCalendarTimelineNavigationPreservesRaceIdentity() {
         let coordinator = AppCoordinator()
         let request = fixtureRequest()
-        coordinator.showTimeline(request.weekend, provider: request.calendarProvider)
+        coordinator.showTimeline(request.weekend, provider: request.calendarProvider, at: Date(timeIntervalSince1970: 1_780_000_000))
         XCTAssertEqual(coordinator.section, .timeline)
         XCTAssertEqual(coordinator.timelineRequest, request)
         XCTAssertEqual(coordinator.navigationRevision, 1)
@@ -23,7 +23,7 @@ import XCTest
         await state.load(request)
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "RaceHistoryLayout-\(UUID().uuidString)")!)
         let coordinator = AppCoordinator()
-        coordinator.showTimeline(request.weekend, provider: .openF1)
+        coordinator.showTimeline(request.weekend, provider: .openF1, at: Date(timeIntervalSince1970: 1_780_000_000))
         let root = RaceTimelineView(season: season, historyStore: state, coordinator: coordinator, preferences: preferences)
         let host = NSHostingView(rootView: root)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720),
@@ -49,7 +49,7 @@ import XCTest
             }
         }
     }
-    func testFutureGrandPrixRendersAnEmptyStateWithNoFakeRows() async throws {
+    func testSeasonWithOnlyFutureRacesHasNoSelectableGrandPrix() async throws {
         let request = RaceHistoryRequest(weekend: RaceWeekend(id: 2, year: 2026, name: "Future GP",
             sessions: [RaceSession(id: 20, name: "Race", start: Date(timeIntervalSince1970: 1_796_558_400))]), provider: .openF1)
         let history = RaceHistory(request: request, provider: .openF1, sourceID: "none", drivers: [], laps: [], events: [], updatedAt: Date(timeIntervalSince1970: 1_780_000_000))
@@ -59,7 +59,9 @@ import XCTest
         XCTAssertTrue(state.history?.laps.isEmpty == true)
         let season = SeasonStore(repository: HistorySeasonRepository(request: request), clock: { Date(timeIntervalSince1970: 1_780_000_000) })
         await season.refresh(force: true)
-        let coordinator = AppCoordinator(); coordinator.showTimeline(request.weekend, provider: .openF1)
+        let coordinator = AppCoordinator(); coordinator.showTimeline(request.weekend, provider: .openF1, at: Date(timeIntervalSince1970: 1_780_000_000))
+        XCTAssertNil(coordinator.timelineRequest, "Calendar navigation must also reject future races")
+        XCTAssertEqual(coordinator.section, .calendar)
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "RaceHistoryEmpty-\(UUID().uuidString)")!)
         let host = NSHostingView(rootView: RaceTimelineView(season: season, historyStore: state, coordinator: coordinator, preferences: preferences))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720), styleMask: [.titled], backing: .buffered, defer: false)

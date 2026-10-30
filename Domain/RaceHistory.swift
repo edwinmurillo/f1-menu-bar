@@ -1,5 +1,15 @@
 import Foundation
 
+extension RaceWeekend {
+    /// Selection eligibility does not establish completion or available lap data.
+    /// Practice dates must not make a future Grand Prix selectable.
+    public func isEligibleForTimeline(at now: Date) -> Bool {
+        guard !isCancelled, !isMissingFromSchedule, let race = grandPrix, !race.isCancelled else { return false }
+        if let start = race.start { return start <= now }
+        return winner != nil
+    }
+}
+
 public struct RaceHistoryRequest: Codable, Equatable, Sendable {
     public let calendarProvider: DataProvider
     public let weekend: RaceWeekend

@@ -55,10 +55,12 @@ struct CalendarView: View {
                     ScrollView {
                         if let selected {
                             VStack(alignment: .leading, spacing: 16) {
-                                Button { coordinator.showTimeline(selected, provider: snapshot.provider) } label: {
+                                Button { coordinator.showTimeline(selected, provider: snapshot.provider, at: store.now) } label: {
                                     Label("View race timeline", systemImage: "chart.xyaxis.line")
                                 }.buttonStyle(.borderedProminent)
-                                    .accessibilityHint("Opens the lap history for \(selected.name)")
+                                    .disabled(!selected.isEligibleForTimeline(at: store.now))
+                                    .help(selected.isEligibleForTimeline(at: store.now) ? "Open race history" : "Available once the Grand Prix has started")
+                                    .accessibilityHint(selected.isEligibleForTimeline(at: store.now) ? "Opens the lap history for \(selected.name)" : "This race is not available in the timeline yet")
                                 WeekendDetailView(weekend: selected,
                                 status: store.policy.status(of: selected, in: snapshot.weekends, now: store.now),
                                 now: store.now, zone: preferences.timeZone)
