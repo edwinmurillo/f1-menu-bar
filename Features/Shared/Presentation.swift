@@ -86,6 +86,31 @@ struct StatusBadge: View {
     }
 }
 
+struct TyreLabel: View {
+    let compound: String?
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Circle().fill(color).frame(width: 8, height: 8)
+                .overlay(Circle().stroke(.secondary.opacity(0.5), lineWidth: 0.5))
+                .accessibilityHidden(true)
+            Text(compound?.capitalized ?? "Unknown").font(.caption)
+        }
+        .accessibilityElement(children: .combine)
+    }
+
+    private var color: Color {
+        switch compound {
+        case "SOFT": .red
+        case "MEDIUM": .yellow
+        case "HARD": .white
+        case "INTERMEDIATE": .green
+        case "WET": .blue
+        default: .gray
+        }
+    }
+}
+
 struct IssueBanner: View {
     let message: String
     var body: some View {

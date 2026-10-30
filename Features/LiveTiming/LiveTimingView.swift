@@ -69,7 +69,7 @@ struct LiveTimingView: View {
                     TableColumn("Last lap") { driver in Text(driver.lastLap ?? "—").monospacedDigit() }.width(86)
                     TableColumn("Tyre / age") { driver in
                         VStack(alignment: .leading, spacing: 3) {
-                            tyreLabel(driver.currentTyre?.compound)
+                            TyreLabel(compound: driver.currentTyre?.compound)
                             Text(driver.currentTyre?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
                         }
                     }.width(100)
@@ -143,7 +143,7 @@ struct LiveTimingView: View {
                     if driver.stints.isEmpty { Text("Waiting for tyre data").font(.caption).foregroundStyle(.secondary) }
                     ForEach(driver.stints) { stint in
                         HStack(spacing: 6) {
-                            tyreLabel(stint.compound)
+                            TyreLabel(compound: stint.compound)
                             if let age = stint.tyreAge { Text("\(age) laps").font(.caption).monospacedDigit() }
                             if stint.isNew == false { Text("Used").font(.caption2).foregroundStyle(.secondary) }
                         }.padding(.horizontal, 10).padding(.vertical, 7)
@@ -157,21 +157,4 @@ struct LiveTimingView: View {
         .padding(12).background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 10))
     }
 
-    private func tyreLabel(_ compound: String?) -> some View {
-        HStack(spacing: 5) {
-            Circle().fill(tyreColor(compound)).frame(width: 8, height: 8)
-                .overlay(Circle().stroke(.secondary.opacity(0.5), lineWidth: 0.5)).accessibilityHidden(true)
-            Text(compound?.capitalized ?? "Unknown").font(.caption)
-        }.accessibilityElement(children: .combine)
-    }
-    private func tyreColor(_ compound: String?) -> Color {
-        switch compound {
-        case "SOFT": .red
-        case "MEDIUM": .yellow
-        case "HARD": .white
-        case "INTERMEDIATE": .green
-        case "WET": .blue
-        default: .gray
-        }
-    }
 }
