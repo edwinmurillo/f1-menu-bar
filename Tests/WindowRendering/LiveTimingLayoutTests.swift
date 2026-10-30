@@ -47,51 +47,6 @@ import XCTest
         }
     }
 
-    func testRecordedTimelineFitsAcrossLapsAndDisconnect() async throws {
-        let harness = Harness()
-        addTeardownBlock { await harness.finish() }
-        harness.coordinator.section = .timeline
-        try harness.assertContentFits()
-        var data = fixture()
-        await harness.load(snapshot: data)
-        for lap in [33, 34, 36] {
-            data.currentLap = lap
-            await harness.feed.send(LiveTimingState(phase: .connected, snapshot: data))
-        }
-        await harness.feed.send(LiveTimingState(phase: .reconnecting, snapshot: data,
-            message: String(repeating: "Waiting before reconnecting. ", count: 10)))
-        try harness.assertContentFits()
-        harness.live.disconnect()
-        XCTAssertFalse(harness.live.isRunning)
-        XCTAssertTrue(LiveTimingConnectionPresentation.status(harness.live.state, at: Date()).contains("Disconnected"))
-        for size in [NSSize(width: 1000, height: 720), NSSize(width: 1200, height: 900)] {
-            harness.window.setContentSize(size)
-            try harness.assertContentFits()
-        }
-        try harness.capture(name: "timeline-recorded")
-        harness.coordinator.section = .live
-        try harness.assertContentFits()
-        harness.coordinator.section = .timeline
-        try harness.assertContentFits()
-    }
-
-    func testDemoTimelineFitsInBothAppearancesAfterCapturedDataAndError() async throws {
-        let harness = Harness(demo: true)
-        addTeardownBlock { await harness.finish() }
-        await harness.load(snapshot: fixture())
-        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
-            harness.window.appearance = NSAppearance(named: appearance)
-            for size in [NSSize(width: 1000, height: 720), NSSize(width: 1200, height: 900)] {
-                harness.window.setContentSize(size)
-                try harness.assertContentFits()
-            }
-            try harness.capture(name: appearance == .aqua ? "timeline-demo-light" : "timeline-demo-dark")
-        }
-        await harness.feed.send(LiveTimingState(phase: .unavailable, snapshot: fixture(),
-            message: String(repeating: "Waiting before reconnecting. ", count: 10)))
-        try harness.assertContentFits()
-    }
-
     private func fixture() -> LiveTimingSnapshot {
         var value = LiveTimingSnapshot()
         value.sessionID = "fixture-session"
@@ -121,22 +76,13 @@ import XCTest
     let window: NSWindow
     let host: NSHostingView<AnyView>
 
-    init(demo: Bool = false) {
+    init() {
         _ = NSApplication.shared
         live = LiveTimingStore(feed: feed)
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "F1LayoutTests-\(UUID().uuidString)")!)
-        let root = ChampionshipWindow(store: season, liveStore: live, preferences: preferences,
+        let root = ChampionshipWindow(store: season, liveStore: live, historyStore: RaceHistoryStore(repository: EmptyHistoryRepository()), preferences: preferences,
             coordinator: coordinator, loginItem: LoginItemController()).frame(minWidth: 1000, minHeight: 720)
-        let demoLive = live
-        let demoRoot = NavigationSplitView {
-            Text("Race timeline").frame(minWidth: 165)
-        } detail: {
-            VStack(spacing: 12) {
-                LiveTimingConnectionHeader(store: demoLive, preferences: preferences).padding(20)
-                DemoRaceTimelineView(store: demoLive)
-            }
-        }.frame(minWidth: 1000, minHeight: 720)
-        host = NSHostingView(rootView: demo ? AnyView(demoRoot) : AnyView(root))
+        host = NSHostingView(rootView: AnyView(root))
         window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720),
             styleMask: [.titled, .resizable, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -213,5 +159,12 @@ private struct LayoutSeasonRepository: SeasonRepository {
     func cached(year: Int) async throws -> SeasonSnapshot? { nil }
     func refresh(year: Int, previous: SeasonSnapshot?, publish: @escaping @Sendable (SeasonSnapshot) async -> Void) async throws -> SeasonSnapshot {
         SeasonSnapshot(year: year)
+    }
+}
+
+private struct EmptyHistoryRepository: RaceHistoryRepository {
+    func cached(_ request: RaceHistoryRequest) async throws -> RaceHistory? { nil }
+    func fetch(_ request: RaceHistoryRequest) async throws -> RaceHistory {
+        RaceHistory(request: request, provider: .openF1, sourceID: "none", drivers: [], laps: [], events: [], updatedAt: Date())
     }
 }

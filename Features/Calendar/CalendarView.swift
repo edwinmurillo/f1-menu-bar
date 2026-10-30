@@ -54,9 +54,15 @@ struct CalendarView: View {
                     Divider()
                     ScrollView {
                         if let selected {
-                            WeekendDetailView(weekend: selected,
+                            VStack(alignment: .leading, spacing: 16) {
+                                Button { coordinator.showTimeline(selected, provider: snapshot.provider) } label: {
+                                    Label("View race timeline", systemImage: "chart.xyaxis.line")
+                                }.buttonStyle(.borderedProminent)
+                                    .accessibilityHint("Opens the lap history for \(selected.name)")
+                                WeekendDetailView(weekend: selected,
                                 status: store.policy.status(of: selected, in: snapshot.weekends, now: store.now),
                                 now: store.now, zone: preferences.timeZone)
+                            }
                         }
                     }.frame(width: 255)
                 }

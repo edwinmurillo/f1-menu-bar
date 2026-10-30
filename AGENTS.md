@@ -7,7 +7,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 ## Organization
 
 - `App/`: composition root, menu bar scene, window routing, and app lifecycle.
-- `Features/`: NextWeekend, Calendar, Standings, LiveTiming, and Settings SwiftUI views and presentation models.
+- `Features/`: NextWeekend, Calendar, Standings, LiveTiming, RaceTimeline, and Settings SwiftUI views and presentation models.
 - `State/`: main-actor season refresh and live connection ownership, shared with core tests.
 - `Domain/`: normalized models, event selection, and time/status rules.
 - `Data/`: OpenF1/Jolpica DTOs and mapping, HTTP transport, provider repositories, automatic fallback, and separate disk caches.
@@ -48,7 +48,7 @@ Observe window visibility from the stable ChampionshipWindow container, outside 
 
 Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
 
-For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep diagnostic fixtures and test controls out of release composition. The user-authorized Race timeline Demo is a labelled product mode: it may simulate missing laps and events, but cannot override recorded driver values or write into the live store, results, points, or caches. Recorded remains the default mode.
+For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep diagnostic fixtures and test controls out of release composition. Race timeline uses real historical API data only; no demo or simulated race data is included. It has one page scroll with fully expanded timing rows, a full-width GP lap slider, Previous/Next controls and a GP picker. Keep historical requests/caches separate from live connection ownership and championship snapshots.
 
 ## Working conventions
 

@@ -1,4 +1,5 @@
 import AppKit
+import F1Core
 import Observation
 import SwiftUI
 
@@ -28,6 +29,13 @@ enum AppSection: String, CaseIterable, Identifiable {
 final class AppCoordinator {
     var section: AppSection = .calendar
     var selectedMeetingID: Int?
+    var timelineRequest: RaceHistoryRequest?
+
+    func showTimeline(_ weekend: RaceWeekend, provider: DataProvider) {
+        timelineRequest = RaceHistoryRequest(weekend: weekend, provider: provider)
+        section = .timeline
+        navigationRevision += 1
+    }
     var navigationRevision = 0
     func show(_ section: AppSection, meetingID: Int? = nil, openWindow: OpenWindowAction) {
         self.section = section

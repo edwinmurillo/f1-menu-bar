@@ -18,7 +18,7 @@ The initial scope is the current championship season, with automatic handling of
 | Previous races | Completed GP rows show the winning driver and constructor. A race awaiting published results displays that state instead of an invented winner. |
 | Drivers | Table with championship position, driver, constructor(s), points, and season qualifying/GP win counts. Event badges combine **Quali & GP** when both were won, with country flags. |
 | Constructors | Table with championship position, constructor, points, GP win count, and flags for races won by either driver. Hover a flag for the event name. |
-| Race timeline | Recorded lap snapshots by default; an explicitly selected Demo mode adds simulated missing laps and events without changing recorded values, winners, standings, or caches. |
+| Race timeline | Calendar deep link and GP picker; real historical laps, positions and available timing details; full-width GP lap progress with Previous/Next controls; one page scroll and complete timing rows. No simulation. |
 | Live timing | Optional personal connection to F1’s current session feed: positions, gaps, laps, tyres, pit counts, selected-driver details, race control, and weather. |
 | Settings | Launch at login, optional menu bar countdown, system-timezone or UTC display, and data-source information. |
 
@@ -62,7 +62,7 @@ A later live-session request on 25 October returned HTTP 401 with an explicit gl
 Arturo authorized trying F1’s anonymous live feed locally for personal use after discussing its access and usage risks. Use the direct SignalR Core/WebSocket endpoint as an optional, experimental feature, separate from calendar, winners, and championship snapshots. This is not a supported public developer API or a promise of continued access.
 
 - Show the feed’s actual meeting, session, status, positions, gaps, lap counts/times, sectors, tyre compound/age, observed stint history, pit counts, recent race-control messages, track status, and weather when supplied.
-- Connect only while Live timing or Race timeline is visible, sharing one connection between them. Stop on close, hiding, leaving both timing sections, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
+- Connect only while Live timing is visible. Historical Race timeline has an independent request and cache owner. Stop on close, hiding, leaving Live timing, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
 - Merge sparse topic updates into the subscription snapshot. Reset on a new session or subscription, reject obsolete connections and older topic updates, and bound memory and publication frequency.
 - Show **Live** only for a Started session with a recent timestamped timing update. A subscription snapshot, ping, scheduled timestamp, or last-known position does not establish liveness. Keep finished and stale data explicit.
 - Use no account credentials, paid topics, backend, disk recordings, or telemetry sharing. Respect access denials and Retry-After, with bounded reconnects and manual retry.
@@ -185,8 +185,12 @@ Two interactive concept directions were prepared for review. **Weekend** shows t
 
 These are proposed designs with illustrative data, not implemented SwiftUI screens or a selected final visual direction. The working title remains provisional. The preview supports calendar selection, screen navigation, timezone changes, and appearance changes; its example championship points and winners are not a live data feed.
 
-## 12. Combined race timeline — 30 October 2026
+## 12. Historical GP timeline — 30 October 2026
 
-The user authorized merging both race-timeline PRs into the existing app. Keep a single installation and a single Race timeline section: Recorded is the default, and Demo is an explicit alternative within that section. Recorded never invents laps or timing. Demo retains the contributed 56-lap scenario and mock flags/retirements; those events are illustrative, even at a lap with captured data. Captured driver rows always use their own session's actual positions, retirement flags and timing. Unknown captured fields stay unknown, and an absent driver is marked Unavailable rather than simulated.
+The user requested removing all mock data after trying the combined PRs. Retain one installed app. Calendar links directly to the selected GP's Race timeline; a GP picker changes races without returning to Calendar. Positions and Gaps share a full-width lap slider representing the entire available GP lap range. Clearly labelled Previous lap and Next lap buttons sit above it. The bottom timing rows expand to their full height inside the page's only vertical scroll.
 
-Keep lap snapshots in memory only, bounded to laps 1...200 for the known session. Clear them as soon as a new session identity arrives, including before its lap count or roster and when a non-race session starts. Both modes expose Connect/Disconnect, retry messages, and live/stale/finished/disconnected status. Reset replay and selection on session changes, preserve a manual disconnect, and honor Reduce Motion. Demo generation never changes the live store, published results, championship points, or persistent caches.
+Use OpenF1's historical laps, position, intervals, drivers, stints, pit and race_control endpoints with explicit race-session identity. Lap starts are approximate, so positions and fresh gaps are sampled at each driver's lap boundary and labelled accordingly. Only completed/observed laps are presented; missing values remain unknown. Read interval history in bounded time slices. Never generate race gaps by summing lap times or infer retirement/caution periods from missing samples.
+
+Use Jolpica's paginated lap endpoint and same-race result directory/pit stops as a complete alternative if the OpenF1 snapshot is unavailable. Count Timing rows across pages, including a lap split at a page boundary. Keep identities and caches scoped by provider, calendar selection, year, race and schema. Do not mix provider rows. Unsupported gaps, tyres and race-control events remain unavailable in Jolpica mode. Missing, upcoming, cancelled and failed histories need clear empty/error states with retry and another GP selection.
+
+One injected history store owns cancellation, coalescing, cache-first display, forced refresh and stale-request rejection. A slow response for a previous GP cannot replace the selected GP. Keep the last good history after refresh failures and do not overwrite it with an empty response. The historical UI never starts the personal live WebSocket connection.

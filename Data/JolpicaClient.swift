@@ -51,6 +51,15 @@ public actor JolpicaClient {
         }
     }
 
+    func historyPage(_ endpoint: String, offset: Int) async throws -> JolpicaHistoryPage {
+        var components = URLComponents(string: "https://api.jolpi.ca/ergast/f1/\(endpoint).json")!
+        components.queryItems = [URLQueryItem(name: "limit", value: "100"), URLQueryItem(name: "offset", value: String(offset))]
+        guard let url = components.url else { throw APIError.invalidResponse }
+        let data = try await http.get(url)
+        do { return try JSONDecoder().decode(JolpicaHistoryEnvelope.self, from: data).data }
+        catch { throw APIError.invalidData("unexpected Jolpica lap history format") }
+    }
+
     private func rows<T: Sendable>(_ endpoint: String, extract: @Sendable (JolpicaPage) throws -> [T]) async throws -> [T] {
         var result: [T] = []
         var expectedTotal: Int?

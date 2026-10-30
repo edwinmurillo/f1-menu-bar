@@ -92,6 +92,7 @@ struct JolpicaQualifyingEntry: Sendable {
 }
 
 struct JolpicaDriver: Decodable, Sendable {
+    var code: String? = nil
     let driverId: String
     let permanentNumber: String?
     let givenName: String

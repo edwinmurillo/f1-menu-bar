@@ -23,7 +23,7 @@ Built natively with Swift and SwiftUI. No account, API key, or backend setup req
 | **Championship standings** | Driver and constructor tables with provider-supplied positions and points, including ties, deductions, and decimal scores. During a GP weekend, each table shows “Waiting for this weekend’s results” until its points include that GP. |
 | **Season wins** | Driver qualifying and GP win counts, with event names and country flags. A double win shares one **Quali & GP** badge. Constructors show GP win counts and flags for wins by either driver. |
 | **Personal live timing** | An experimental session table with positions, gaps, lap times, tyre compounds and age, stint history, pit counts, race control, and weather. Connects directly to F1 while the view is visible. |
-| **Race timeline** | Recorded mode replays captured positions and gaps, leaving missing laps absent. An explicit Demo tab adds a 56-lap simulated history and mock race events. Captured rows retain their F1 values and identify their source. Both modes share connection controls. |
+| **Race timeline** | Open a GP from Calendar or choose one in the timeline. Real historical positions, lap times and available gaps, tyres, pits and race control come from OpenF1, with Jolpica lap history as a fallback. A full-width race-progress slider and Previous/Next lap buttons control the graph. All timing rows expand in the page. |
 | **Your local time** | Session times in the Mac’s system timezone, with an option to use UTC. |
 | **Mac preferences** | System, light, or dark appearance; optional launch at login; and manual refresh. |
 | **Saved data and a backup source** | Cached calendars remain available offline. Jolpica takes over when OpenF1 is unavailable, including during its live-session access restrictions. |
@@ -61,11 +61,11 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 1. Click the checkered flag to see the next GP weekend and its session times.
 2. Choose **Full calendar** to browse weekends and published winners.
 3. Choose **Standings** to open driver and constructor points and season wins. Scroll the driver win badges horizontally to see every event; hover a constructor flag for the GP name.
-4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the window, leaving both timing sections, or sleeping the Mac stops the connection. Switching between Live timing and Race timeline shares the same connection.
-5. Choose **Race timeline**. **Recorded** is the default: review only the laps captured while connected, using Positions, Gaps, lap selection, and the sortable timing table. **Demo** adds simulated missing laps, a fixed 56-lap chart, mock VSC/SC/red flags and retirements, and a regeneration control. Demo events always remain simulated; captured rows retain their reported positions, retirement flags and timing. The Source column distinguishes Recorded, Simulated, and Unavailable rows. Both tabs show connection status, errors, and Connect/Disconnect. The purple marker identifies the quickest available best lap at the selected snapshot.
+4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. Closing or hiding the window, leaving both timing sections, or sleeping the Mac stops the connection. The historical Race timeline loads independently and does not keep the personal live connection open.
+5. From Calendar, select a weekend and choose **View race timeline**, or open **Race timeline** and choose a Grand Prix in its picker. Use **Previous lap**, **Next lap**, or the full-width progress slider to inspect the GP. Switch between Positions and Gaps, highlight a driver, and sort the timing rows by their column headings. The page has one vertical scroll; every driver row and the selected lap's race-control messages are shown without an inner timing-table scroll.
 6. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
-Both timeline modes require the feed to supply a Race roster and lap number; neither downloads a historical lap replay. Captured laps are snapshots during a lap, not a certified end-of-lap classification. The in-memory history is cleared when another session is identified or the app quits. A stopped connection retains its last data with an explicit status.
+The timeline downloads actual race history and caches it separately from season standings and the personal live connection. OpenF1 supplies lap timing, sampled positions/gaps, tyre stints, pit stops and race-control messages when available. Jolpica supplies real lap times and positions if OpenF1 is unavailable; gaps, tyres and race-control fields remain unknown with that fallback. No demo data, simulated laps, gaps, retirements or race events are included. Upcoming GPs, unpublished history, unavailable fields and connection failures have explicit empty or error states. Historical lap counts show available data, not an invented planned race length.
 
 Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
 
@@ -97,6 +97,7 @@ Scripts/check.sh            # Whitespace and project generation
 Scripts/check-app.sh        # Release signature and static-link packaging
 Scripts/live-smoke.sh       # Opt-in live API and disk-cache check
 Scripts/live-timing-smoke.sh # Opt-in 75-second connection stability check
+Scripts/race-history-smoke.sh YEAR MEETING_ID RACE_SESSION_ID START_ISO8601 # Real history and fallback/cache check
 ```
 
 Scripts honor `DEVELOPER_DIR` and find full Xcode when the system selects Command Line Tools. They do not change the global developer-directory setting. To choose an installation:

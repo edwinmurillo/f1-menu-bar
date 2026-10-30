@@ -6,6 +6,7 @@ import SwiftUI
 struct F1MenuBarApp: App {
     @NSApplicationDelegateAdaptor(AppLifecycle.self) private var lifecycle
     @State private var store: SeasonStore
+    @State private var historyStore: RaceHistoryStore
     @State private var liveStore: LiveTimingStore
     @State private var preferences = AppPreferences()
     @State private var coordinator = AppCoordinator()
@@ -13,11 +14,15 @@ struct F1MenuBarApp: App {
 
     init() {
         let directory = URL.applicationSupportDirectory.appending(path: "F1MenuBar", directoryHint: .isDirectory)
+        let openF1 = OpenF1Client()
+        let jolpica = JolpicaClient()
         let repository = FallbackSeasonRepository(
-            primary: OpenF1Repository(client: OpenF1Client(), cache: SnapshotCache(directory: directory)),
-            fallback: JolpicaRepository(client: JolpicaClient(), cache: SnapshotCache(directory: directory, provider: .jolpica)))
+            primary: OpenF1Repository(client: openF1, cache: SnapshotCache(directory: directory)),
+            fallback: JolpicaRepository(client: jolpica, cache: SnapshotCache(directory: directory, provider: .jolpica)))
         let store = SeasonStore(repository: repository)
         _store = State(initialValue: store)
+        _historyStore = State(initialValue: RaceHistoryStore(repository: HistoricalRaceRepository(
+            openF1: openF1, jolpica: jolpica, cache: RaceHistoryCache(directory: directory))))
         let liveStore = LiveTimingStore(feed: F1LiveTimingClient())
         _liveStore = State(initialValue: liveStore)
         lifecycle.store = store
@@ -35,7 +40,7 @@ struct F1MenuBarApp: App {
 
         // Keep the menu bar scene first; this auxiliary window opens on demand.
         Window("F1 Menu Bar", id: "championship") {
-            ChampionshipWindow(store: store, liveStore: liveStore, preferences: preferences, coordinator: coordinator, loginItem: loginItem)
+            ChampionshipWindow(store: store, liveStore: liveStore, historyStore: historyStore, preferences: preferences, coordinator: coordinator, loginItem: loginItem)
                 .preferredColorScheme(preferences.colorScheme)
                 .frame(minWidth: 1000, minHeight: 720)
         }

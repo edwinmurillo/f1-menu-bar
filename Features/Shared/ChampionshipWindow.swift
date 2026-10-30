@@ -5,6 +5,7 @@ import SwiftUI
 struct ChampionshipWindow: View {
     let store: SeasonStore
     let liveStore: LiveTimingStore
+    let historyStore: RaceHistoryStore
     let preferences: AppPreferences
     @Bindable var coordinator: AppCoordinator
     let loginItem: LoginItemController
@@ -36,7 +37,7 @@ struct ChampionshipWindow: View {
                     case .constructors: StandingsView(snapshot: store.visibleSnapshot, drivers: false, loading: store.isRefreshing,
                         now: store.now, timeZone: preferences.timeZone)
                     case .live: LiveTimingView(store: liveStore, preferences: preferences)
-                    case .timeline: RaceTimelineView(store: liveStore, preferences: preferences)
+                    case .timeline: RaceTimelineView(season: store, historyStore: historyStore, coordinator: coordinator, preferences: preferences)
                     case .settings: SettingsView(preferences: preferences, store: store, loginItem: loginItem)
                     }
                 }.frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
@@ -50,7 +51,7 @@ struct ChampionshipWindow: View {
                     if coordinator.section == .live {
                         Text("Personal live connection")
                     } else if coordinator.section == .timeline {
-                        Text("Personal timing · Recorded / Demo")
+                        Text(historyStore.history.map { Presentation.providerName($0.provider) } ?? "Race history")
                     } else { Link("OpenF1", destination: URL(string: "https://openf1.org/")!) }
                 }.font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20).padding(.vertical, 10)
             }.background(Color(nsColor: .windowBackgroundColor))
@@ -58,7 +59,7 @@ struct ChampionshipWindow: View {
         .navigationSplitViewStyle(.balanced)
         .background(WindowVisibilityReader { visible in
             isWindowVisible = visible
-            liveStore.setVisible(visible && (coordinator.section == .live || coordinator.section == .timeline))
+            liveStore.setVisible(visible && coordinator.section == .live)
         }.frame(width: 0, height: 0))
         .navigationTitle("F1 Menu Bar")
         .toolbar {
@@ -90,18 +91,19 @@ struct ChampionshipWindow: View {
         .onChange(of: coordinator.section) { _, section in
             logger.info("Navigate section=\(section.rawValue, privacy: .public) windowVisible=\(isWindowVisible)")
             columnVisibility = .all
-            liveStore.setVisible(isWindowVisible && (section == .live || section == .timeline))
+            liveStore.setVisible(isWindowVisible && section == .live)
         }
         .onChange(of: coordinator.navigationRevision) { _, _ in columnVisibility = .all }
         .onDisappear {
             logger.info("Detail disappeared section=\(coordinator.section.rawValue, privacy: .public)")
             liveStore.setVisible(false)
+            historyStore.cancel()
         }
     }
 
     private var freshness: String {
         if coordinator.section == .live { return "Timing is separate from published standings" }
-        if coordinator.section == .timeline { return "Live timing snapshots kept in memory" }
+        if coordinator.section == .timeline { return historyStore.isLoading ? "Loading lap history…" : "Historical lap data · no simulation" }
         if store.isRefreshing { return "Refreshing…" }
         let snapshot = store.visibleSnapshot
         let date: Date?
