@@ -11,6 +11,7 @@ public final class LiveTimingStore {
     @ObservationIgnored private let feed: any LiveTimingFeed
     @ObservationIgnored private let archive: LiveLapArchive?
     @ObservationIgnored private var archiveSequence = 0
+    @ObservationIgnored private var lastArchivedAt: Date?
     @ObservationIgnored private var task: Task<Void, Never>?
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var visible = false
@@ -23,9 +24,9 @@ public final class LiveTimingStore {
         self.feed = feed; self.archive = archive
         if let archive {
             Task { [weak self] in
-                if let saved = try? await archive.latest(), self?.recording == nil {
-                    self?.recording = saved
-                }
+                do {
+                    if let saved = try await archive.latest(), self?.recording == nil { self?.recording = saved }
+                } catch { self?.logger.error("Saved live recording could not be read: \(error.localizedDescription, privacy: .public)") }
             }
         }
     }
@@ -55,6 +56,7 @@ public final class LiveTimingStore {
     }
 
     public func stop() {
+        persistRecording(force: true)
         generation += 1
         task?.cancel(); task = nil
         isRunning = false
@@ -74,7 +76,10 @@ public final class LiveTimingStore {
         if let sessionID = snapshot.sessionID, loggedSessionID != sessionID {
             loggedSessionID = sessionID
             lapSnapshots = [:]
-            if recording?.sessionID != sessionID { recording = nil }
+            if recording?.sessionID != sessionID {
+                persistRecording(force: true)
+                recording = nil; lastArchivedAt = nil
+            }
         }
         if snapshot.sessionName == "Race", let sessionID = snapshot.sessionID,
            let lap = snapshot.currentLap, (1...200).contains(lap), !snapshot.drivers.isEmpty {
@@ -91,11 +96,21 @@ public final class LiveTimingStore {
             let before = recording?.updatedAt
             recording?.record(snapshot, at: snapshot.receivedAt ?? Date())
             if let recording, recording.recordedStepCount > 0,
-               (!recording.isBestLapSession || recording.updatedAt != before), let archive {
-                archiveSequence += 1
-                let sequence = archiveSequence
-                Task { try? await archive.save(recording, sequence: sequence) }
+               (!recording.isBestLapSession || recording.updatedAt != before) {
+                persistRecording()
             }
+        }
+    }
+
+    private func persistRecording(force: Bool = false) {
+        guard let archive, let recording, recording.recordedStepCount > 0 else { return }
+        if !force, let lastArchivedAt, recording.updatedAt.timeIntervalSince(lastArchivedAt) < 5 { return }
+        lastArchivedAt = recording.updatedAt
+        archiveSequence += 1
+        let sequence = archiveSequence
+        Task { [logger] in
+            do { try await archive.save(recording, sequence: sequence) }
+            catch { logger.error("Live recording could not be saved: \(error.localizedDescription, privacy: .public)") }
         }
     }
 }

@@ -11,7 +11,7 @@ struct RaceTimelineView: View {
     @State private var highlightedDriver: String?
 
     private var options: [RaceHistoryRequest] {
-        season.visibleSnapshot.weekends.filter { !$0.isCancelled && !$0.isMissingFromSchedule && !$0.activeSessions.isEmpty }
+        season.visibleSnapshot.weekends.filter { $0.hasStartedTimelineSession(at: season.now) }
             .map { RaceHistoryRequest(weekend: $0, provider: season.visibleSnapshot.provider) }
     }
     private var selectedWeekend: RaceHistoryRequest? {
@@ -28,7 +28,9 @@ struct RaceTimelineView: View {
         return options.last(where: { $0.weekend.winner != nil }) ?? options.first
     }
     private var sessions: [RaceSession] {
-        (selectedWeekend?.weekend.activeSessions ?? []).sorted { ($0.start ?? .distantFuture, $0.id) < ($1.start ?? .distantFuture, $1.id) }
+        (selectedWeekend?.weekend.activeSessions ?? []).filter {
+            $0.start.map { $0 <= season.now } ?? ($0.isGrandPrix && selectedWeekend?.weekend.winner != nil)
+        }.sorted { ($0.start ?? .distantFuture, $0.id) < ($1.start ?? .distantFuture, $1.id) }
     }
     private var selected: RaceHistoryRequest? {
         guard let weekend = selectedWeekend else { return nil }
@@ -44,12 +46,16 @@ struct RaceTimelineView: View {
         return LiveRecordingHistory.make(recording, request: selected)
     }
     private var displayHistory: RaceHistory? {
-        liveHistory ?? historyStore.history.flatMap { $0.request.key == selected?.key ? $0 : nil }
+        let saved = historyStore.history.flatMap { $0.request.key == selected?.key ? $0 : nil }
+        if let saved, !saved.laps.isEmpty, saved.detailsComplete != false,
+           liveStore?.state.snapshot.hasFreshTiming(at: season.now) != true { return saved }
+        return liveHistory ?? saved
     }
     private var awaitingLiveLap: Bool {
         guard let selected, let session = selected.session, let start = session.start,
               let snapshot = liveStore?.state.snapshot, let name = snapshot.sessionName,
-              name.caseInsensitiveCompare(session.name) == .orderedSame else { return false }
+              name.caseInsensitiveCompare(session.name) == .orderedSame,
+              snapshot.meetingName?.caseInsensitiveCompare(selected.weekend.name) == .orderedSame else { return false }
         let elapsed = season.now.timeIntervalSince(start)
         return elapsed >= -6 * 3600 && elapsed <= 24 * 3600 && liveStore?.isRunning == true
     }

@@ -58,7 +58,7 @@ struct CalendarView: View {
                                 Button { coordinator.showTimeline(selected, provider: snapshot.provider, at: store.now) } label: {
                                     Label("View race timeline", systemImage: "chart.xyaxis.line")
                                 }.buttonStyle(.borderedProminent)
-                                    .disabled(selected.isCancelled || selected.isMissingFromSchedule || !selected.activeSessions.contains(where: { ($0.start ?? .distantFuture) <= store.now }))
+                                    .disabled(!selected.hasStartedTimelineSession(at: store.now))
                                     .help("Open available session history")
                                     .accessibilityHint("Opens available session history for \(selected.name)")
                                 WeekendDetailView(weekend: selected,

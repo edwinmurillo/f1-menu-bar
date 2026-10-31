@@ -32,8 +32,7 @@ final class AppCoordinator {
     var timelineRequest: RaceHistoryRequest?
 
     func showTimeline(_ weekend: RaceWeekend, provider: DataProvider, at now: Date = Date()) {
-        guard !weekend.isCancelled, !weekend.isMissingFromSchedule,
-              weekend.activeSessions.contains(where: { ($0.start ?? .distantFuture) <= now }) else { return }
+        guard weekend.hasStartedTimelineSession(at: now) else { return }
         timelineRequest = RaceHistoryRequest(weekend: weekend, provider: provider)
         section = .timeline
         navigationRevision += 1

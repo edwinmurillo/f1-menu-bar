@@ -2,7 +2,8 @@ import Foundation
 
 public enum LiveRecordingHistory {
     public static func matches(_ recording: LiveSessionRecording, request: RaceHistoryRequest) -> Bool {
-        guard let session = request.session,
+        guard recording.isValid, let session = request.session,
+              recording.meetingName.caseInsensitiveCompare(request.weekend.name) == .orderedSame,
               session.name.caseInsensitiveCompare(recording.sessionName) == .orderedSame,
               let start = session.start else { return false }
         return recording.updatedAt.timeIntervalSince(start) >= -6 * 3600 &&
@@ -12,6 +13,7 @@ public enum LiveRecordingHistory {
     public static func make(_ recording: LiveSessionRecording, request: RaceHistoryRequest) -> RaceHistory? {
         guard matches(recording, request: request) else { return nil }
         let isPractice = recording.isBestLapSession
+        let useBestRanking = isPractice && !recording.isQualifyingSession
         let snapshots = (isPractice ? recording.practiceSnapshots ?? [:] : recording.laps).sorted { $0.key < $1.key }
         guard !snapshots.isEmpty else { return nil }
         let latestDrivers = snapshots.flatMap { $0.value.drivers }
@@ -29,10 +31,10 @@ public enum LiveRecordingHistory {
             return RaceHistoryLap(number: number, timings: snapshot.drivers.map { driver in
                 let bestTime = driver.bestLap.flatMap(LapDuration.seconds)
                 var timing = RaceHistoryTiming(driverID: driver.id,
-                    position: isPractice ? ranked[driver.id] : driver.position,
+                    position: useBestRanking ? ranked[driver.id] : driver.position,
                     duration: driver.lastLap.flatMap(LapDuration.seconds),
                     bestDuration: bestTime,
-                    gap: isPractice ? bestTime.flatMap { time in leader.map { .seconds(max(0, time - $0)) } } : gap(driver.gap),
+                    gap: useBestRanking ? bestTime.flatMap { time in leader.map { .seconds(max(0, time - $0)) } } : gap(driver.gap),
                     compound: driver.currentTyre?.compound,
                     tyreAge: driver.currentTyre?.tyreAge, stops: driver.stops, inPit: driver.inPit)
                 timing.pitOut = driver.pitOut

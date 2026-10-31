@@ -1,6 +1,11 @@
 import Foundation
 
 extension RaceWeekend {
+    public func hasStartedTimelineSession(at now: Date) -> Bool {
+        !isCancelled && !isMissingFromSchedule && activeSessions.contains {
+            $0.start.map { $0 <= now } ?? ($0.isGrandPrix && winner != nil)
+        }
+    }
     /// Selection eligibility does not establish completion or available lap data.
     /// Practice dates must not make a future Grand Prix selectable.
     public func isEligibleForTimeline(at now: Date) -> Bool {
@@ -15,7 +20,8 @@ public struct RaceHistoryRequest: Codable, Equatable, Sendable {
     public let weekend: RaceWeekend
     public let sessionID: Int?
     public init(weekend: RaceWeekend, provider: DataProvider, sessionID: Int? = nil) {
-        self.weekend = weekend; calendarProvider = provider; self.sessionID = sessionID
+        self.weekend = weekend; calendarProvider = provider
+        self.sessionID = weekend.sessions.first(where: { $0.id == sessionID })?.isGrandPrix == true ? nil : sessionID
     }
     public var session: RaceSession? {
         if let sessionID { return weekend.sessions.first { $0.id == sessionID } }
@@ -26,7 +32,10 @@ public struct RaceHistoryRequest: Codable, Equatable, Sendable {
             lhs.weekend.year == rhs.weekend.year && lhs.sessionID == rhs.sessionID && lhs.session == rhs.session &&
             lhs.weekend.isCancelled == rhs.weekend.isCancelled && lhs.weekend.isMissingFromSchedule == rhs.weekend.isMissingFromSchedule
     }
-    public var key: String { "\(calendarProvider.rawValue)-\(weekend.year)-\(weekend.id)-\(sessionID.map(String.init) ?? "race")" }
+    public var key: String {
+        let base = "\(calendarProvider.rawValue)-\(weekend.year)-\(weekend.id)"
+        return sessionID.map { base + "-session-\($0)" } ?? base
+    }
 }
 
 public struct RaceHistoryDriver: Codable, Identifiable, Equatable, Sendable {
