@@ -126,7 +126,11 @@ struct TyreHistoryLabel: View {
                         HStack(spacing: 4) {
                             TyreHistoryBadge(compound: segments[index].compound)
                             if let laps = segments[index].completedLaps {
-                                Text("\(laps)").monospacedDigit()
+                                Text("Laps \(laps)").monospacedDigit()
+                            } else if index == segments.count - 1 {
+                                Text("Current").foregroundStyle(.secondary)
+                            } else {
+                                Text("Laps —").foregroundStyle(.secondary)
                             }
                             if index < segments.count - 1 {
                                 Text("–").foregroundStyle(.secondary)

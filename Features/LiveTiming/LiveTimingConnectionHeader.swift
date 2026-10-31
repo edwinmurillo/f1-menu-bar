@@ -58,13 +58,9 @@ struct LiveTimingConnectionHeader: View {
             }
             LiveSessionClockView(store: store)
             if let message = store.state.message {
-                // This header also lives outside the timeline's content scroll.
-                // Bound verbose failures so they cannot enlarge the split view.
-                ScrollView(.vertical) {
-                    IssueBanner(message: message + (store.state.retryAt.map {
-                        " Retry after \(Presentation.date($0, format: "jmmss", zone: preferences.timeZone))."
-                    } ?? ""))
-                }.frame(height: 64)
+                IssueBanner(message: message + (store.state.retryAt.map {
+                    " Retry after \(Presentation.date($0, format: "jmmss", zone: preferences.timeZone))."
+                } ?? ""))
             }
         }.frame(maxWidth: .infinity, alignment: .leading)
     }

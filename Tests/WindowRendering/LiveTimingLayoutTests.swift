@@ -47,7 +47,78 @@ import XCTest
         }
     }
 
-    private func fixture() -> LiveTimingSnapshot {
+    func testExpandedTimingAndRaceControlUseOnePageScrollInBothAppearances() async throws {
+        _ = NSApplication.shared
+        let feed = LayoutFeed()
+        let store = LiveTimingStore(feed: feed)
+        store.start(); await feed.waitForConnection()
+        await feed.send(LiveTimingState(phase: .reconnecting, snapshot: fixture(stintCount: 8),
+            message: String(repeating: "Connection interrupted; waiting to reconnect. ", count: 12)))
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "LiveScroll-\(UUID().uuidString)")!)
+        let host = NSHostingView(rootView: LiveTimingView(store: store, preferences: preferences))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+            window.appearance = NSAppearance(named: appearance)
+            host.layoutSubtreeIfNeeded()
+            let scrolls = scrollViews(host)
+            XCTAssertEqual(scrolls.count, 1, "Timing rows, errors, race control and tyre previews must share the page scroll")
+            let scroll = try XCTUnwrap(scrolls.first)
+            let document = try XCTUnwrap(scroll.documentView)
+            XCTAssertGreaterThan(document.frame.height, 22 * 90 + 40 * 20, "All drivers and retained race-control messages must expand")
+            XCTAssertLessThanOrEqual(host.fittingSize.height, host.bounds.height + 1)
+            try capture(host, name: appearance == .aqua ? "live-expanded-light" : "live-expanded-dark")
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: max(0, document.frame.height - scroll.contentView.bounds.height)))
+            scroll.reflectScrolledClipView(scroll.contentView); host.layoutSubtreeIfNeeded()
+            try capture(host, name: appearance == .aqua ? "live-race-control-light" : "live-race-control-dark")
+            scroll.contentView.scroll(to: .zero)
+        }
+        store.stop(); await feed.finish(); window.contentView = nil; window.close()
+    }
+
+    func testDriverAndTeamFiltersPreserveRanksAndReconcileRosterChanges() {
+        let drivers = fixture().drivers
+        var filter = LiveTimingFilter(driverID: "2", team: "Team B")
+        XCTAssertEqual(filter.apply(to: drivers).map(\.position), [2])
+        filter.team = "Team A"; filter.reconcile(with: drivers)
+        XCTAssertNil(filter.driverID, "Changing team must clear an incompatible driver filter")
+        XCTAssertEqual(filter.apply(to: drivers).count, 11)
+        filter.driverID = "1"
+        XCTAssertEqual(filter.apply(to: drivers).map(\.id), ["1"])
+        filter.reconcile(with: [])
+        XCTAssertEqual(filter, LiveTimingFilter())
+        XCTAssertEqual(LiveTimingFilter.teams(in: drivers), ["Team A", "Team B"])
+        XCTAssertEqual(LiveTimingFilter().apply(to: drivers), drivers)
+    }
+
+    func testFullTyreHistoryModalRemainsBoundedAndScrollable() throws {
+        _ = NSApplication.shared
+        let driver = try XCTUnwrap(fixture(stintCount: 8).drivers.first)
+        let host = NSHostingView(rootView: TyreHistorySheet(driverName: driver.name, segments: driver.tyreHistory, stints: driver.stints))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 480, height: 520), styleMask: [], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { window.contentView = nil; window.close() }
+        host.layoutSubtreeIfNeeded()
+        let scrolls = scrollViews(host)
+        XCTAssertEqual(scrolls.count, 1)
+        XCTAssertGreaterThan(try XCTUnwrap(scrolls.first?.documentView).frame.height, 8 * 55)
+        XCTAssertLessThanOrEqual(host.fittingSize.height, 521)
+        try capture(host, name: "live-tyre-history-modal")
+    }
+
+    private func scrollViews(_ view: NSView) -> [NSScrollView] {
+        (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews($0) }
+    }
+    private func capture(_ host: NSView, name: String) throws {
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appending(path: ".build/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: directory.appending(path: name + ".png"))
+    }
+
+    private func fixture(stintCount: Int = 1) -> LiveTimingSnapshot {
         var value = LiveTimingSnapshot()
         value.sessionID = "fixture-session"
         value.meetingName = "Fixture Grand Prix"
@@ -57,10 +128,10 @@ import XCTest
         value.airTemperature = "24"; value.trackTemperature = "36"
         value.drivers = (1...22).map { number in
             LiveDriverTiming(id: String(number), position: number, name: "Fixture Driver \(number)",
-                abbreviation: "F\(number)", team: "Fixture Team", teamColor: "FF8000", gap: "+4.123", interval: "+1.234",
+                abbreviation: "F\(number)", team: number.isMultiple(of: 2) ? "Team B" : "Team A", teamColor: "FF8000", gap: "+4.123", interval: "+1.234",
                 laps: 32, lastLap: "1:21.123", bestLap: "1:20.987", sectors: ["25.1", "30.2", "26.3"],
                 stops: 1, inPit: false, retired: false, knockedOut: false,
-                stints: [LiveTyreStint(id: 0, compound: "MEDIUM", tyreAge: 12, initialAge: 0, isNew: true)])
+                stints: (0..<stintCount).map { LiveTyreStint(id: $0, compound: $0.isMultiple(of: 2) ? "MEDIUM" : "SOFT", tyreAge: 12, initialAge: 0, isNew: true) })
         }
         value.messages = (1...40).map { LiveRaceMessage(id: String($0), date: nil,
             message: "Fixture race control message \($0) with additional details that can wrap across lines.") }

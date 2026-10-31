@@ -105,7 +105,7 @@ actor JSONHTTPClient {
 
     func get(_ url: URL) async throws -> Data {
         var request = URLRequest(url: url)
-        request.setValue("F1MenuBar/0.5.0 (macOS; personal calendar client)", forHTTPHeaderField: "User-Agent")
+        request.setValue("F1MenuBar/0.5.1 (macOS; personal calendar client)", forHTTPHeaderField: "User-Agent")
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         for attempt in 0..<2 {
             if let blockedUntil, blockedUntil > Date() { throw APIError.rateLimited(blockedUntil) }

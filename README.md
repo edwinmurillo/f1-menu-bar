@@ -61,11 +61,11 @@ To keep it in Applications, quit the app and copy this bundle into your Applicat
 1. Click the checkered flag to see the next GP weekend and its session times.
 2. Choose **Full calendar** to browse weekends and published winners.
 3. Choose **Standings** to open driver and constructor points and season wins. Scroll the driver win badges horizontally to see every event; hover a constructor flag for the GP name.
-4. Choose **Live timing** to connect to the current feed. Select a driver for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. The same personal connection stays active while either Live timing or Race timeline is visible. Closing or hiding the window, leaving both sections, or sleeping the Mac stops it. Race timeline stores observed lap snapshots locally for the active session and uses the historical API independently for other sessions.
+4. Choose **Live timing** to connect to the current feed. Filter by driver and team, or select a driver row for sectors, best lap, and tyre history. Use **Disconnect** to pause; **Connect** resumes. The same personal connection stays active while either Live timing or Race timeline is visible. Closing or hiding the window, leaving both sections, or sleeping the Mac stops it. Race timeline stores observed lap snapshots locally for the active session and uses the historical API independently for other sessions.
 
 When the live stream supplies its extrapolated session clock, both timing sections show the remaining time. The clock pauses when the feed stops extrapolating; in free practice it turns red below five minutes. Both timing tables mark a driver as **PIT** when the feed reports `InPit`, or **OUT** when it reports `PitOut`; historical laps without either state show an unknown value.
 
-Both timing tables also show tyre history beside the current tyre and age: completed stints include laps driven on that set, such as `(S) 10 – (H) 20 – (M)` for a current medium stint. Used-tyre age before fitting is excluded when the feed supplies it. Missing stint duration remains unknown.
+Both timing sections show tyre history with explicit lap counts: completed stints include laps driven on that set, such as `(S) 10 – (H) 20 – (M)` for a current medium stint. Used-tyre age before fitting is excluded when the feed supplies it. Missing stint duration remains unknown. Live timing shows the latest four stints; **See more** opens every stint in a modal with new/used-set details and age when fitted.
 5. From Calendar, select a weekend and choose **View race timeline** after its first session starts, or open **Race timeline** and choose a Grand Prix and session in the two pickers. Only started weekends and sessions are selectable. The current weekend is selected once it has started, with its latest started session; otherwise the most recent available weekend is selected. Use **Previous lap**, **Next lap**, or the full-width progress slider to inspect available laps. Switch between Positions and Gaps, highlight a driver, and sort the timing rows by their column headings. The page has one vertical scroll; every driver row and the selected lap's race-control messages are shown without an inner timing-table scroll.
 6. Open **Settings** to change the timezone, appearance, countdown, or launch-at-login preference.
 
@@ -75,7 +75,7 @@ During an active session, the timeline uses the same F1 SignalR stream as Live t
 
 For live practice, chart steps record newly observed best-lap improvements and rank drivers by their best times, including drivers currently off track. Qualifying steps also capture changed rankings and reset/slower best times; positions and gaps come from the feed so Q2/Q3 are not ranked against earlier segments. Timestamps identify observed updates. Races and sprints remain lap based.
 
-Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing keeps its table within the window; scroll to read additional driver and race-control details. Use the panel’s power button to quit. The installed version is shown in Settings.
+Closing the detail window keeps the menu bar app running. The detail window keeps the same minimum size across sections and restores the sidebar when navigating. Live timing has one page scroll with every matching driver row, selected-driver details, connection messages and all retained race-control messages fully expanded. Driver/team filters work together and can be cleared without changing the feed or its recordings. Use the panel’s power button to quit. The installed version is shown in Settings.
 
 While Live timing connects or waits for its first data, a centered status and subtle shimmer show where timing will appear. Reduce Motion and inactive windows use static placeholders. Existing timing stays visible during reconnects, and errors have a separate static state.
 
@@ -89,7 +89,7 @@ The current weekend stays in view through its race. Published results and standi
 
 The optional live view uses F1’s anonymous SignalR/WebSocket feed with no account token. It is an experimental personal-use integration with an unsupported endpoint: availability and fields can change. It keeps timing in memory and labels disconnected, stale, and finished data. Exact stationary pit-stop durations, future team strategy, and paid telemetry are outside this feature.
 
-See [data sources and freshness](docs/DATA_SOURCES.md) for selection rules, refresh intervals, caching, provider limitations, and attribution.
+See [additional useful data](docs/LIVE_DATA_OPTIONS.md) for fields received but not yet displayed and potential provider additions. See [data sources and freshness](docs/DATA_SOURCES.md) for selection rules, refresh intervals, caching, provider limitations, and attribution.
 
 ## Development
 

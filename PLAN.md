@@ -208,3 +208,8 @@ One injected history store owns cancellation, coalescing, cache-first display, f
 ### History loading and cache refinement
 
 Retain completed GP histories across launches without hourly re-downloads; keep four recent races in memory and offer explicit Refresh for revisions. Publish essential real lap positions and times before the slower details requests finish. Repair sparse saved histories that cannot form any consecutive position trace, while preserving actual missing laps. Use visible neutral plot styling for unknown team colours and draw isolated samples without joining across unobserved laps.
+
+
+### Live timing presentation refinement — 31 October 2026
+
+Use one page scroll for the complete live timing screen, replacing the native Table, capped race-control/error scrolls and horizontal tyre strip with expanded rows. Retain viewport sizing and the split-view first-snapshot regression. Provide driver and team filters with a clear action, preserving source ranks and clearing incompatible choices after team/session/roster changes. Show the latest four tyre stints, explicit laps-on-set labels, and a See more modal containing every stint plus available new/used and fitting-age details. Missing counts stay unknown; current stints have no fabricated final count. Keep the shared connection and archive independent of filtering. Inventory additional useful feed fields in docs/LIVE_DATA_OPTIONS.md; implementing those additions requires separate product work.
