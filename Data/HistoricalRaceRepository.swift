@@ -17,7 +17,8 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
     public func fetch(_ request: RaceHistoryRequest, publish: @escaping @Sendable (RaceHistory) async -> Void) async throws -> RaceHistory {
         guard (1950...9999).contains(request.weekend.year), !request.weekend.isCancelled,
               !request.weekend.isMissingFromSchedule else { return empty(request, provider: request.calendarProvider) }
-        if let start = request.weekend.grandPrix?.start, start > now() { return empty(request, provider: request.calendarProvider) }
+        guard let selectedSession = request.session, !selectedSession.isCancelled else { return empty(request, provider: request.calendarProvider) }
+        if let start = selectedSession.start, start > now() { return empty(request, provider: request.calendarProvider) }
         var primary: RaceHistory?
         var primaryIssue: String?
         do {
@@ -27,12 +28,15 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
         catch { primaryIssue = error.localizedDescription }
         var value: RaceHistory
         if let primary { value = primary }
-        else {
+        else if selectedSession.isGrandPrix {
             do {
                 value = try await jolpicaHistory(request)
                 if primaryIssue != nil { value.limitations.insert("OpenF1 history unavailable. Showing Jolpica lap history.", at: 0) }
             } catch is CancellationError { throw CancellationError() }
             catch { throw APIError.invalidData("OpenF1: \(primaryIssue ?? "no lap history returned"). Jolpica: \(error.localizedDescription)") }
+        } else {
+            if let primaryIssue { throw APIError.invalidData("OpenF1 session history: \(primaryIssue)") }
+            value = empty(request, provider: .openF1)
         }
         value.detailsComplete = true
         try Task.checkCancellation()
@@ -48,13 +52,14 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
     func timestamp() -> Date { now() }
 
     private func openSession(_ request: RaceHistoryRequest) async throws -> Int? {
-        if request.calendarProvider == .openF1, let race = request.weekend.grandPrix, race.id > 0 { return race.id }
-        guard let start = request.weekend.grandPrix?.start else { return nil }
+        guard let selected = request.session else { return nil }
+        if request.calendarProvider == .openF1, selected.id > 0 { return selected.id }
+        guard let start = selected.start else { return nil }
         let sessions: [SessionDTO] = try await openF1.get("sessions", query: [
-            URLQueryItem(name: "year", value: String(request.weekend.year)), URLQueryItem(name: "session_name", value: "Race")])
-        let matching = sessions.filter { $0.year == request.weekend.year && $0.sessionName == "Race" && $0.isCancelled != true &&
+            URLQueryItem(name: "year", value: String(request.weekend.year)), URLQueryItem(name: "session_name", value: selected.name)])
+        let matching = sessions.filter { $0.year == request.weekend.year && $0.sessionName.caseInsensitiveCompare(selected.name) == .orderedSame && $0.isCancelled != true &&
             $0.dateStart.map { abs($0.timeIntervalSince(start)) <= 12 * 3600 } == true }
-        guard matching.count <= 1 else { throw APIError.invalidData("ambiguous OpenF1 race identity") }
+        guard matching.count <= 1 else { throw APIError.invalidData("ambiguous OpenF1 session identity") }
         return matching.first?.sessionKey
     }
 
@@ -67,7 +72,7 @@ public actor HistoricalRaceRepository: RaceHistoryRepository {
         let drivers: [HistoricalDriverDTO] = try await openF1.get("drivers", query: query)
         var preview = try OpenF1HistoryMapper.map(request: request, session: session, laps: laps, positions: positions,
             drivers: drivers, intervals: [], stints: nil, pits: nil, control: [], updatedAt: now())
-        guard !preview.needsPositionRepair else { throw APIError.invalidData("incomplete OpenF1 position history") }
+        guard request.session?.isGrandPrix != true || !preview.needsPositionRepair else { throw APIError.invalidData("incomplete OpenF1 position history") }
         preview.detailsComplete = false
         await publish(preview)
         var limitations: [String] = []

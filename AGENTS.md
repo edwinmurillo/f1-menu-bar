@@ -31,7 +31,7 @@ Build a native macOS menu bar utility for the next F1 weekend, season calendar a
 - Set an identifiable application/version `User-Agent`, honor `Retry-After`, bound retries and pagination, and cache responses.
 - OpenF1 can return a global HTTP 401 during live sessions, even for historical/calendar requests. Use the Jolpica fallback without combining provider snapshots or IDs. Keep source attribution visible and use an explicitly completed round for Jolpica standings. Missing times and cancellation flags must not be invented.
 - Live timing is a separate experimental personal connection. Keep its actor-owned SignalR transport and in-memory snapshot outside the season repository; never turn provisional timing into winners or points. Connect only while its view is visible, honor manual disconnect and sleep, and reject obsolete connection callbacks.
-- Merge sparse timing updates, reset on a new subscription/session, bound frames/state, and coalesce publication. A Started status plus a recent timestamped TimingData delta establishes freshness; snapshots and pings do not. Use anonymous topics only, with no account tokens, disk recording, or backend redistribution. Race timeline may retain bounded, session-scoped lap snapshots in memory.
+- Merge sparse timing updates, reset on a new subscription/session, bound frames/state, and coalesce publication. A Started status plus a recent timestamped TimingData delta establishes freshness; snapshots and pings do not. Use anonymous topics only, with no account tokens or backend redistribution. Race timeline may retain bounded, session-scoped lap snapshots in memory and on local disk.
 - Never embed secrets. The planned API calls require no credentials. Verify current provider documentation before changing API assumptions.
 
 ## Build and verification
@@ -48,7 +48,7 @@ Observe window visibility from the stable ChampionshipWindow container, outside 
 
 Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
 
-For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep diagnostic fixtures and test controls out of release composition. Race timeline uses real historical API data only; no demo or simulated race data is included. It has one page scroll with fully expanded timing rows, a full-width GP lap slider, Previous/Next controls and a GP picker. Keep historical requests/caches separate from live connection ownership and championship snapshots.
+For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep diagnostic fixtures and test controls out of release composition. Race timeline uses real historical API data or locally recorded live timing; no demo or simulated race data is included. It has one page scroll with fully expanded timing rows, a full-width lap slider, Previous/Next controls and GP/session pickers. Keep historical requests/caches separate from live connection ownership and championship snapshots.
 
 ## Working conventions
 

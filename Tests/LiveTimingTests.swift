@@ -23,20 +23,57 @@ final class LiveTimingTests: XCTestCase {
         XCTAssertFalse(value.hasFreshTiming(at: now))
     }
 
+    func testSessionClockCountsDownPausesAndResetsOnNewSession() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(initial), receivedAt: now)
+        let utc = "2027-01-15T08:00:00Z"
+        try reducer.apply(topic: "ExtrapolatedClock", value: json("{\"Utc\":\"\(utc)\",\"Remaining\":\"00:06:00\",\"Extrapolating\":true}"),
+            timestamp: now, receivedAt: now)
+        XCTAssertEqual(reducer.snapshot().sessionClock?.remaining(at: now.addingTimeInterval(90)), 270)
+        try reducer.apply(topic: "ExtrapolatedClock", value: json(#"{"Remaining":"00:04:30","Extrapolating":false}"#),
+            timestamp: now.addingTimeInterval(90), receivedAt: now.addingTimeInterval(90))
+        XCTAssertEqual(reducer.snapshot().sessionClock?.remaining(at: now.addingTimeInterval(300)), 270)
+        try reducer.apply(topic: "SessionInfo", value: json(#"{"Key":124,"Name":"Qualifying"}"#),
+            timestamp: now.addingTimeInterval(301), receivedAt: now.addingTimeInterval(301))
+        XCTAssertNil(reducer.snapshot().sessionClock)
+    }
+
     func testSparseUpdatesKeepUnchangedFieldsAndMergeIndexedArrays() throws {
         var reducer = LiveTimingReducer()
         try reducer.seed(json(initial), receivedAt: now)
-        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Position":"1","InPit":"true","Sectors":{"1":{"Value":"30.4"}}}}}"#), timestamp: now, receivedAt: now)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Position":"1","InPit":"true","PitOut":false,"Sectors":{"1":{"Value":"30.4"}}}}}"#), timestamp: now, receivedAt: now)
         try reducer.apply(topic: "TimingAppData", value: json(#"{"Lines":{"4":{"Stints":{"0":{"TotalLaps":13},"1":{"Compound":"HARD","TotalLaps":1,"New":true}}}}}"#), timestamp: now, receivedAt: now)
         let value = reducer.snapshot(), driver = try XCTUnwrap(value.drivers.first)
         XCTAssertEqual(driver.position, 1)
         XCTAssertEqual(driver.lastLap, "1:30.123")
         XCTAssertEqual(driver.sectors, ["28.1", "30.4", "30.8"])
         XCTAssertTrue(driver.inPit)
+        XCTAssertEqual(driver.pitOut, false)
         XCTAssertEqual(driver.stints.map(\.compound), ["SOFT", "HARD"])
         XCTAssertEqual(driver.stints.first?.tyreAge, 13)
         XCTAssertTrue(value.hasFreshTiming(at: now.addingTimeInterval(30)))
         XCTAssertFalse(value.hasFreshTiming(at: now.addingTimeInterval(31)))
+    }
+
+    func testPitOutFlagAppearsAndClearsOnSparseTimingUpdates() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(initial), receivedAt: now)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"InPit":false,"PitOut":true}}}"#),
+            timestamp: now, receivedAt: now)
+        XCTAssertEqual(reducer.snapshot().drivers.first?.pitOut, true)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"PitOut":false}}}"#),
+            timestamp: now.addingTimeInterval(1), receivedAt: now.addingTimeInterval(1))
+        XCTAssertEqual(reducer.snapshot().drivers.first?.pitOut, false)
+    }
+
+    func testTyreHistorySubtractsUsedTyreAgeAndLeavesCurrentStintOpen() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(initial), receivedAt: now)
+        try reducer.apply(topic: "TimingAppData", value: json(#"{"Lines":{"4":{"Stints":{"0":{"Compound":"SOFT","TotalLaps":10,"StartLaps":0},"1":{"Compound":"HARD","TotalLaps":25,"StartLaps":5},"2":{"Compound":"MEDIUM","TotalLaps":3,"StartLaps":0}}}}}"#),
+            timestamp: now, receivedAt: now)
+        let history = try XCTUnwrap(reducer.snapshot().drivers.first).tyreHistory
+        XCTAssertEqual(history.map(\.compound), ["SOFT", "HARD", "MEDIUM"])
+        XCTAssertEqual(history.map(\.completedLaps), [10, 20, nil])
     }
 
     func testOldTimingAndOtherTopicsCannotMakeDataFresh() throws {

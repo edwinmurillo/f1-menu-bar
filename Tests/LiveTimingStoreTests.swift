@@ -25,6 +25,27 @@ private actor ControlledLiveFeed: LiveTimingFeed {
 }
 
 @MainActor final class LiveTimingStoreTests: XCTestCase {
+    func testFreshPracticeUpdateCreatesLocalRecordingButSubscriptionSnapshotDoesNot() async {
+        let feed = ControlledLiveFeed()
+        let store = LiveTimingStore(feed: feed)
+        store.setVisible(true)
+        await feed.waitForRuns(1)
+        var practice = LiveTimingSnapshot()
+        practice.sessionID = "practice-a"; practice.sessionName = "Practice 1"
+        practice.meetingName = "Test Grand Prix"; practice.sessionStatus = "Started"
+        practice.currentLap = nil; practice.receivedAt = Date(timeIntervalSince1970: 1_800_000_000)
+        practice.drivers = [LiveDriverTiming(id: "44", position: 1, name: "Driver", abbreviation: "DRV",
+            team: "Team", teamColor: nil, gap: "0", interval: nil, laps: 3,
+            lastLap: "1:20.100", bestLap: "1:19.900", sectors: [], stops: 0,
+            inPit: false, retired: false, knockedOut: false, stints: [])]
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: practice), run: 0)
+        XCTAssertNil(store.recording)
+        practice.lastTimingUpdate = practice.receivedAt
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: practice), run: 0)
+        XCTAssertEqual(store.recording?.practiceSnapshots?[1]?.drivers.first?.id, "44")
+        store.stop(); await feed.finishAll()
+    }
+
     func testLapHistoryClearsOnNewIdentityBeforeLapOrRosterArrives() async {
         let feed = ControlledLiveFeed()
         let store = LiveTimingStore(feed: feed)

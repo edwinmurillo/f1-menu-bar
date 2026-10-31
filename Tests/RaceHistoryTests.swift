@@ -27,6 +27,22 @@ final class RaceHistoryTests: XCTestCase {
         XCTAssertNil(history.laps[1].timings[0].gap)
         XCTAssertTrue(history.events.isEmpty)
     }
+
+    func testHistoricalTyreHistoryCountsCompletedStintsOnly() throws {
+        let laps = (1...3).map { lap in
+            HistoricalLapDTO(sessionKey: 10, driverNumber: 1, lapNumber: lap,
+                dateStart: epoch.addingTimeInterval(Double(lap - 1) * 90), lapDuration: 90)
+        }
+        let stints = [
+            HistoricalStintDTO(sessionKey: 10, driverNumber: 1, lapStart: 1, lapEnd: 1, compound: "SOFT", tyreAgeAtStart: 0),
+            HistoricalStintDTO(sessionKey: 10, driverNumber: 1, lapStart: 2, lapEnd: 2, compound: "HARD", tyreAgeAtStart: 0),
+            HistoricalStintDTO(sessionKey: 10, driverNumber: 1, lapStart: 3, lapEnd: nil, compound: "MEDIUM", tyreAgeAtStart: 0)]
+        let history = try OpenF1HistoryMapper.map(request: request(), session: 10, laps: laps,
+            positions: [], drivers: [], intervals: [], stints: stints, pits: nil, control: [], updatedAt: epoch)
+        XCTAssertEqual(history.laps[2].timings[0].tyreHistory?.map(\.compound), ["SOFT", "HARD", "MEDIUM"])
+        XCTAssertEqual(history.laps[2].timings[0].tyreHistory?.map(\.completedLaps), [1, 1, nil])
+        XCTAssertEqual(history.laps[2].timings[0].compound, "MEDIUM")
+    }
     func testNoFutureOrStaleGapSampleIsCarriedIntoLapBoundary() throws {
         let samples = [
             HistoricalIntervalDTO(sessionKey: 10, driverNumber: 1, date: epoch.addingTimeInterval(88), gapToLeader: .number(4.25)),

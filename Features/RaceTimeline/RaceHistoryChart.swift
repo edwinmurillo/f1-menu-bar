@@ -9,6 +9,12 @@ struct RaceHistoryChart: View {
     let kind: Kind
     let gapWindow: Int
     let selectLap: (Int) -> Void
+    private var isPracticeTimeline: Bool {
+        history.sourceID.hasPrefix("live:") &&
+            (history.request.session?.name.localizedCaseInsensitiveContains("Practice") == true ||
+             history.request.session?.name.localizedCaseInsensitiveContains("Qualifying") == true ||
+             history.request.session?.name.localizedCaseInsensitiveContains("Shootout") == true)
+    }
 
     private var drivers: [RaceHistoryDriver] {
         let latest = history.laps.last?.timings ?? []
@@ -37,7 +43,7 @@ struct RaceHistoryChart: View {
         .background(Color.black, in: RoundedRectangle(cornerRadius: 12))
         .clipShape(RoundedRectangle(cornerRadius: 12))
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel(kind == .positions ? "Driver positions through lap \(selectedLap) of \(history.lastLap)" : "Recorded gaps to the leader through lap \(selectedLap)")
+        .accessibilityLabel(kind == .positions ? "Driver positions through \(isPracticeTimeline ? "best-lap update" : "lap") \(selectedLap) of \(history.lastLap)" : "Recorded gaps to the leader through \(isPracticeTimeline ? "update" : "lap") \(selectedLap)")
         .accessibilityHint("Use the lap progress slider, previous and next buttons, or the timing rows for accessible details.")
     }
 
@@ -66,7 +72,8 @@ struct RaceHistoryChart: View {
         }
         for lap in history.laps where lap.number >= first && lap.number <= last &&
             (lap.number == first || lap.number == last || lap.number.isMultiple(of: kind == .gaps ? 1 : 10)) {
-            context.draw(Text(String(lap.number)).font(.caption2).foregroundStyle(.white.opacity(0.65)),
+            let label = isPracticeTimeline ? lap.recordedAt.map { DateFormatter.localizedString(from: $0, dateStyle: .none, timeStyle: .short) } ?? String(lap.number) : String(lap.number)
+            context.draw(Text(label).font(.caption2).foregroundStyle(.white.opacity(0.65)),
                          at: CGPoint(x: x(lap.number), y: bottom + 16))
         }
         // Actual race-control markers only. No inferred caution intervals.
@@ -103,7 +110,7 @@ struct RaceHistoryChart: View {
                              at: CGPoint(x: endpoint.x + 8, y: endpoint.y), anchor: .leading)
             }
         }
-        context.draw(Text("Grand Prix lap").font(.caption2).foregroundStyle(.white.opacity(0.6)),
+        context.draw(Text(isPracticeTimeline ? "Best-lap updates" : "Session lap").font(.caption2).foregroundStyle(.white.opacity(0.6)),
                      at: CGPoint(x: (left + right) / 2, y: size.height - 9))
     }
     private func grid(context: GraphicsContext, label: String, y: CGFloat, left: CGFloat, right: CGFloat) {

@@ -38,7 +38,7 @@ struct LiveTimingView: View {
                             RoundedRectangle(cornerRadius: 2).fill(Presentation.color(hex: driver.teamColor)).frame(width: 3, height: 26).accessibilityHidden(true)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(driver.name).fontWeight(.medium).lineLimit(1)
-                                Text(driver.retired ? "Retired" : driver.inPit ? "In pit lane" : driver.knockedOut ? "Knocked out" : driver.team)
+                                Text(driver.retired ? "Retired" : driver.inPit ? "In pit lane" : driver.pitOut == true ? "Out lap" : driver.knockedOut ? "Knocked out" : driver.team)
                                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
                             }
                         }.padding(.vertical, 4)
@@ -51,8 +51,15 @@ struct LiveTimingView: View {
                             Text(driver.currentTyre?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
                         }
                     }.width(100)
+                    TableColumn("Tyre history") { driver in
+                        TyreHistoryLabel(segments: driver.tyreHistory)
+                    }.width(min: 150, ideal: 175)
                     TableColumn("Laps") { driver in Text(driver.laps.map(String.init) ?? "—").monospacedDigit() }.width(36)
                     TableColumn("Stops") { driver in Text(driver.stops.map(String.init) ?? "—").monospacedDigit() }.width(36)
+                    TableColumn("Pit") { driver in
+                        Text(driver.inPit ? "PIT" : driver.pitOut == true ? "OUT" : "—")
+                            .foregroundStyle(driver.inPit ? Color.orange : driver.pitOut == true ? Color.green : Color.secondary)
+                    }.width(36)
                 }
                 .tableStyle(.inset(alternatesRowBackgrounds: false))
                 // A native Table's unconstrained fitting height can enlarge the entire

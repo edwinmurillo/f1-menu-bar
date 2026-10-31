@@ -38,7 +38,7 @@ struct LiveRetryPolicy {
     }
 }
 
-/// Owns one anonymous, in-memory connection. No account tokens, recordings, or proxy server.
+/// Owns one anonymous connection. A separate local archive stores observed lap snapshots.
 public actor F1LiveTimingClient: LiveTimingFeed {
     private var activeSessions: LiveTimingSessions?
     private var activeID: UUID?
@@ -122,7 +122,7 @@ private struct LiveTimingSessions: Sendable {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.httpCookieStorage = nil
         configuration.urlCache = nil
-        configuration.httpAdditionalHeaders = ["User-Agent": "F1MenuBar/0.4.2 (personal live timing)"]
+        configuration.httpAdditionalHeaders = ["User-Agent": "F1MenuBar/0.5.0 (personal live timing)"]
         return configuration
     }
 
@@ -158,7 +158,7 @@ private actor LiveTimingConnection {
         components.queryItems = [URLQueryItem(name: "id", value: headers.token)]
         var request = URLRequest(url: components.url!)
         if let cookie = headers.cookie { request.setValue(cookie, forHTTPHeaderField: "Cookie") }
-        request.setValue("F1MenuBar/0.4.2 (personal live timing)", forHTTPHeaderField: "User-Agent")
+        request.setValue("F1MenuBar/0.5.0 (personal live timing)", forHTTPHeaderField: "User-Agent")
         let socket = sessions.stream.webSocketTask(with: request)
         socket.maximumMessageSize = SignalRFrames.maximumBytes
         socket.resume()

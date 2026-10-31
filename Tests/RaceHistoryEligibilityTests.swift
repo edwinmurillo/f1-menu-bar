@@ -25,6 +25,22 @@ final class RaceHistoryEligibilityTests: XCTestCase {
         XCTAssertFalse(race.isEligibleForTimeline(at: now))
     }
 
+    func testSessionSelectionKeepsHistoryAndCacheKeysSeparate() {
+        let race = weekend(start: now.addingTimeInterval(86_400))
+        let practice = RaceHistoryRequest(weekend: race, provider: .openF1, sessionID: 1)
+        let grandPrix = RaceHistoryRequest(weekend: race, provider: .openF1, sessionID: 2)
+        XCTAssertEqual(practice.session?.name, "Practice 1")
+        XCTAssertEqual(grandPrix.session?.name, "Race")
+        XCTAssertNotEqual(practice.key, grandPrix.key)
+        XCTAssertNotEqual(practice, grandPrix)
+    }
+
+    func testCurrentWeekendCanHaveStartedPracticeBeforeRace() {
+        let race = weekend(start: now.addingTimeInterval(86_400))
+        XCTAssertFalse(race.isEligibleForTimeline(at: now))
+        XCTAssertTrue(race.activeSessions.contains { ($0.start ?? .distantFuture) <= now })
+    }
+
     private func weekend(start: Date?) -> RaceWeekend {
         RaceWeekend(id: 1, year: 2026, name: "Test Grand Prix", sessions: [
             RaceSession(id: 1, name: "Practice 1", start: now.addingTimeInterval(-86_400)),

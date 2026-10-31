@@ -99,8 +99,12 @@ struct TyreLabel: View {
         .accessibilityElement(children: .combine)
     }
 
-    private var color: Color {
-        switch compound {
+    private var color: Color { TyreColor.forCompound(compound) }
+}
+
+private enum TyreColor {
+    static func forCompound(_ compound: String?) -> Color {
+        switch compound?.uppercased() {
         case "SOFT": .red
         case "MEDIUM": .yellow
         case "HARD": .white
@@ -108,6 +112,97 @@ struct TyreLabel: View {
         case "WET": .blue
         default: .gray
         }
+    }
+}
+
+struct TyreHistoryLabel: View {
+    let segments: [TyreHistorySegment]?
+
+    var body: some View {
+        Group {
+            if let segments, !segments.isEmpty {
+                TyreHistoryFlow(spacing: 5) {
+                    ForEach(segments.indices, id: \.self) { index in
+                        HStack(spacing: 4) {
+                            TyreHistoryBadge(compound: segments[index].compound)
+                            if let laps = segments[index].completedLaps {
+                                Text("\(laps)").monospacedDigit()
+                            }
+                            if index < segments.count - 1 {
+                                Text("–").foregroundStyle(.secondary)
+                            }
+                        }
+                        .font(.caption2)
+                    }
+                }
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("Tyre history: \(segments.map { "\(TyreHistoryBadge.letter($0.compound))" + ($0.completedLaps.map { " \($0) laps" } ?? "") }.joined(separator: ", "))")
+            } else {
+                Text("—").font(.caption2).accessibilityLabel("Tyre history unavailable")
+            }
+        }
+    }
+}
+
+private struct TyreHistoryBadge: View {
+    let compound: String?
+
+    static func letter(_ compound: String?) -> String {
+        switch compound?.uppercased() {
+        case "SOFT": "S"
+        case "MEDIUM": "M"
+        case "HARD": "H"
+        case "INTERMEDIATE": "I"
+        case "WET": "W"
+        default: "?"
+        }
+    }
+
+    var body: some View {
+        Text(Self.letter(compound))
+            .font(.system(size: 10, weight: .bold, design: .rounded))
+            .foregroundStyle(.black)
+            .frame(width: 19, height: 19)
+            .background(.white, in: Circle())
+            .overlay(Circle().stroke(.gray.opacity(0.55), lineWidth: 2.5))
+            .overlay(Circle().stroke(TyreColor.forCompound(compound), lineWidth: 1.8))
+            .accessibilityHidden(true)
+    }
+}
+
+private struct TyreHistoryFlow: Layout {
+    var spacing: CGFloat
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        arrange(subviews, width: proposal.width ?? .infinity).size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let layout = arrange(subviews, width: bounds.width)
+        for (index, point) in layout.positions.enumerated() {
+            subviews[index].place(at: CGPoint(x: bounds.minX + point.x, y: bounds.minY + point.y), proposal: .unspecified)
+        }
+    }
+
+    private func arrange(_ subviews: Subviews, width: CGFloat) -> (size: CGSize, positions: [CGPoint]) {
+        var positions: [CGPoint] = []
+        var x: CGFloat = 0
+        var y: CGFloat = 0
+        var rowHeight: CGFloat = 0
+        var usedWidth: CGFloat = 0
+        for subview in subviews {
+            let size = subview.sizeThatFits(.unspecified)
+            if x > 0 && x + size.width > width {
+                x = 0
+                y += rowHeight + spacing
+                rowHeight = 0
+            }
+            positions.append(CGPoint(x: x, y: y))
+            x += size.width + spacing
+            usedWidth = max(usedWidth, x - spacing)
+            rowHeight = max(rowHeight, size.height)
+        }
+        return (CGSize(width: usedWidth, height: y + rowHeight), positions)
     }
 }
 
