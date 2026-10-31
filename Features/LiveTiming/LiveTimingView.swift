@@ -113,7 +113,7 @@ struct LiveTimingView: View {
             }.font(.caption).monospacedDigit()
             Text("Tyre history").font(.caption).foregroundStyle(.secondary)
             TyreHistorySummary(segments: driver.tyreHistory, driverName: driver.name, stints: driver.stints)
-            Text("Tyre-history lap counts show laps driven on each set. Current tyre age also includes prior use. Pit counts are reported by the feed.")
+            Text("Tyre-history lap counts show laps driven on each set. Pit counts are reported by the feed.")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
         .padding(12).background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 10))

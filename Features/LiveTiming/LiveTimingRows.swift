@@ -27,7 +27,6 @@ struct LiveTimingRows: View {
                 Text("Driver").frame(maxWidth: .infinity, alignment: .leading)
                 Text("Gap").frame(width: 66, alignment: .leading)
                 Text("Last lap").frame(width: 86, alignment: .leading)
-                Text("Tyre / age").frame(width: 94, alignment: .leading)
                 Text("Laps").frame(width: 36, alignment: .leading)
                 Text("Stops").frame(width: 36, alignment: .leading)
                 Text("Pit").frame(width: 36, alignment: .leading)
@@ -50,10 +49,6 @@ struct LiveTimingRows: View {
                             .accessibilityAddTraits(selectedDriver == driver.id ? [.isSelected] : [])
                         Text(driver.gap ?? "—").frame(width: 66, alignment: .leading)
                         Text(driver.lastLap ?? "—").frame(width: 86, alignment: .leading)
-                        VStack(alignment: .leading, spacing: 3) {
-                            TyreLabel(compound: driver.currentTyre?.compound)
-                            Text(driver.currentTyre?.tyreAge.map { "\($0) laps" } ?? "Age unknown").font(.caption).foregroundStyle(.secondary)
-                        }.frame(width: 94, alignment: .leading)
                         Text(driver.laps.map(String.init) ?? "—").frame(width: 36, alignment: .leading)
                         Text(driver.stops.map(String.init) ?? "—").frame(width: 36, alignment: .leading)
                         Text(driver.inPit ? "PIT" : driver.pitOut == true ? "OUT" : "—")

@@ -213,3 +213,5 @@ Retain completed GP histories across launches without hourly re-downloads; keep 
 ### Live timing presentation refinement — 31 October 2026
 
 Use one page scroll for the complete live timing screen, replacing the native Table, capped race-control/error scrolls and horizontal tyre strip with expanded rows. Retain viewport sizing and the split-view first-snapshot regression. Provide driver and team filters with a clear action, preserving source ranks and clearing incompatible choices after team/session/roster changes. Show the latest four tyre stints, explicit laps-on-set labels, and a See more modal containing every stint plus available new/used and fitting-age details. Missing counts stay unknown; current stints have no fabricated final count. Keep the shared connection and archive independent of filtering. Inventory additional useful feed fields in docs/LIVE_DATA_OPTIONS.md; implementing those additions requires separate product work.
+
+Live timing uses its tyre-history summary instead of a separate current tyre/age column; the current compound remains identified by the final stint.
