@@ -4,6 +4,50 @@ import XCTest
 @testable import F1Core
 
 @MainActor final class RaceHistoryLayoutTests: XCTestCase {
+    func testHistoryAdapterUsesSelectedLapAndPreservesAvailableMetadata() throws {
+        let history = fixtureHistory(fixtureRequest())
+        let value = TimingHistoryPresentation.snapshot(history, lap: 12)
+        XCTAssertEqual(value.currentLap, 12)
+        XCTAssertEqual(value.drivers.count, 22)
+        XCTAssertEqual(value.drivers.first?.racingNumber, "1")
+        XCTAssertEqual(value.drivers.first?.laps, 12)
+        XCTAssertEqual(value.drivers.first?.tyreHistory.first?.completedLaps, 12)
+        XCTAssertEqual(value.drivers[1].interval, "+1.200")
+        XCTAssertTrue(value.drivers.allSatisfy { $0.sectors.isEmpty && !$0.retired })
+    }
+    func testRecordedRankingStepsDoNotInventDriverLapCounts() throws {
+        let fixture = fixtureHistory(fixtureRequest())
+        let request = RaceHistoryRequest(weekend: RaceWeekend(id: 1, year: 2026, name: "Practice GP",
+            sessions: [RaceSession(id: 9, name: "Practice 1", start: Date(timeIntervalSince1970: 1_770_000_000))]), provider: .openF1, sessionID: 9)
+        let history = RaceHistory(request: request, provider: .openF1, sourceID: "live:practice",
+            drivers: fixture.drivers, laps: fixture.laps, events: [], updatedAt: fixture.updatedAt)
+        let value = TimingHistoryPresentation.snapshot(history, lap: 12)
+        XCTAssertEqual(value.currentLap, 12)
+        XCTAssertNil(value.drivers.first?.laps)
+    }
+
+    func testSimulationIsOnlyAvailableForCurrentOngoingGrandPrix() {
+        let current = fixtureRequest()
+        var snapshot = LiveTimingSnapshot()
+        snapshot.meetingName = current.weekend.name; snapshot.sessionName = "Race"; snapshot.sessionStatus = "Started"
+        var state = LiveTimingState(phase: .connected, snapshot: snapshot)
+        XCTAssertTrue(TimingHistoryPresentation.canSimulate(state: state, request: current, current: current, usesLive: true))
+        XCTAssertFalse(TimingHistoryPresentation.canSimulate(state: state, request: current, current: current, usesLive: false))
+        state.snapshot.sessionStatus = "Finished"
+        XCTAssertFalse(TimingHistoryPresentation.canSimulate(state: state, request: current, current: current, usesLive: true))
+        state.snapshot.sessionStatus = "Aborted"
+        XCTAssertTrue(TimingHistoryPresentation.canSimulate(state: state, request: current, current: current, usesLive: true))
+        var previous = current.weekend
+        previous = RaceWeekend(id: 99, year: current.weekend.year - 1, name: current.weekend.name, sessions: current.weekend.sessions)
+        let oldRequest = RaceHistoryRequest(weekend: previous, provider: current.calendarProvider)
+        XCTAssertFalse(TimingHistoryPresentation.canSimulate(state: state, request: oldRequest, current: current, usesLive: true))
+        state.snapshot.sessionName = "Sprint"
+        XCTAssertFalse(TimingHistoryPresentation.canSimulate(state: state, request: current, current: current, usesLive: true))
+        state.snapshot.sessionName = "Race"
+        state.phase = .stopped
+        XCTAssertFalse(TimingHistoryPresentation.canSimulate(state: state, request: current, current: current, usesLive: true))
+    }
+
     func testCalendarTimelineNavigationPreservesRaceIdentity() {
         let coordinator = AppCoordinator()
         let request = fixtureRequest()
@@ -11,6 +55,7 @@ import XCTest
         XCTAssertEqual(coordinator.section, .live)
         XCTAssertEqual(coordinator.timelineRequest, request)
         XCTAssertEqual(coordinator.navigationRevision, 1)
+        XCTAssertFalse(coordinator.wantsLiveTiming, "Historical navigation must not initially start the live feed")
     }
     func testTimelineHasOnePageScrollAndAllDriverRowsInBothAppearances() async throws {
         _ = NSApplication.shared
@@ -24,7 +69,7 @@ import XCTest
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "RaceHistoryLayout-\(UUID().uuidString)")!)
         let coordinator = AppCoordinator()
         coordinator.showTimeline(request.weekend, provider: .openF1, at: Date(timeIntervalSince1970: 1_780_000_000))
-        let root = RaceTimelineView(season: season, historyStore: state, coordinator: coordinator, preferences: preferences)
+        let root = LiveTimingView(store: LiveTimingStore(feed: HistoryIdleFeed()), preferences: preferences, season: season, historyStore: state, coordinator: coordinator)
         let host = NSHostingView(rootView: root)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720),
             styleMask: [.titled, .resizable], backing: .buffered, defer: false)
@@ -63,7 +108,7 @@ import XCTest
         XCTAssertNil(coordinator.timelineRequest, "Calendar navigation must also reject future races")
         XCTAssertEqual(coordinator.section, .calendar)
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "RaceHistoryEmpty-\(UUID().uuidString)")!)
-        let host = NSHostingView(rootView: RaceTimelineView(season: season, historyStore: state, coordinator: coordinator, preferences: preferences))
+        let host = NSHostingView(rootView: LiveTimingView(store: LiveTimingStore(feed: HistoryIdleFeed()), preferences: preferences, season: season, historyStore: state, coordinator: coordinator))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.contentView = host
         defer { window.contentView = nil; window.close(); season.cancelRefresh(); state.cancel() }
@@ -141,4 +186,8 @@ private struct HistorySeasonRepository: SeasonRepository {
     private func value(_ year: Int) -> SeasonSnapshot {
         var value = SeasonSnapshot(year: year); value.weekends = [request.weekend]; return value
     }
+}
+
+private struct HistoryIdleFeed: LiveTimingFeed {
+    func run(onUpdate: @escaping @Sendable (LiveTimingState) async -> Void) async {}
 }

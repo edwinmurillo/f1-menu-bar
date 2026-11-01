@@ -90,14 +90,14 @@ final class LiveTimingTests: XCTestCase {
         XCTAssertEqual(reducer.snapshot().drivers.first?.pitOut, false)
     }
 
-    func testTyreHistorySubtractsUsedTyreAgeAndLeavesCurrentStintOpen() throws {
+    func testTyreHistorySubtractsUsedTyreAgeAndShowsCurrentCount() throws {
         var reducer = LiveTimingReducer()
         try reducer.seed(json(initial), receivedAt: now)
         try reducer.apply(topic: "TimingAppData", value: json(#"{"Lines":{"4":{"Stints":{"0":{"Compound":"SOFT","TotalLaps":10,"StartLaps":0},"1":{"Compound":"HARD","TotalLaps":25,"StartLaps":5},"2":{"Compound":"MEDIUM","TotalLaps":3,"StartLaps":0}}}}}"#),
             timestamp: now, receivedAt: now)
         let history = try XCTUnwrap(reducer.snapshot().drivers.first).tyreHistory
         XCTAssertEqual(history.map(\.compound), ["SOFT", "HARD", "MEDIUM"])
-        XCTAssertEqual(history.map(\.completedLaps), [10, 20, nil])
+        XCTAssertEqual(history.map(\.completedLaps), [10, 20, 3])
     }
 
     func testOldTimingAndOtherTopicsCannotMakeDataFresh() throws {

@@ -37,7 +37,9 @@ public enum LiveRecordingHistory {
                     gap: useBestRanking ? bestTime.flatMap { time in leader.map { .seconds(max(0, time - $0)) } } : gap(driver.gap),
                     compound: driver.currentTyre?.compound,
                     tyreAge: driver.currentTyre?.tyreAge, stops: driver.stops, inPit: driver.inPit)
+                timing.completedDriverLaps = driver.laps
                 timing.pitOut = driver.pitOut
+                timing.retired = driver.retired; timing.stopped = driver.stopped
                 timing.tyreHistory = driver.tyreHistory
                 return timing
             }, recordedAt: isPractice ? snapshot.receivedAt : nil)

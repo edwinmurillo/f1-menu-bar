@@ -14,7 +14,7 @@ public struct LiveTyreStint: Codable, Identifiable, Equatable, Sendable {
 
 public struct TyreHistorySegment: Codable, Equatable, Sendable {
     public let compound: String?
-    /// Completed laps in this stint. Nil for the current stint or unknown duration.
+    /// Reported laps driven on this set so far; nil when unavailable.
     public let completedLaps: Int?
     public init(compound: String?, completedLaps: Int?) {
         self.compound = compound; self.completedLaps = completedLaps
@@ -41,14 +41,28 @@ public struct LiveDriverTiming: Codable, Identifiable, Equatable, Sendable {
     public let stints: [LiveTyreStint]
     public var pitOut: Bool? = nil
     public var stopped: Bool? = nil
+    public var racingNumber: String? = nil
+    public var recordedTyreHistory: [TyreHistorySegment]? = nil
     public var isOutOfRunning: Bool { retired || (stopped == true && !inPit && pitOut != true) }
+    public init(id: String, position: Int?, name: String, abbreviation: String, team: String, teamColor: String?,
+        gap: String?, interval: String?, laps: Int?, lastLap: String?, bestLap: String?, sectors: [String],
+        stops: Int?, inPit: Bool, retired: Bool, knockedOut: Bool, stints: [LiveTyreStint], pitOut: Bool? = nil,
+        stopped: Bool? = nil, racingNumber: String? = nil, recordedTyreHistory: [TyreHistorySegment]? = nil) {
+        self.id = id; self.position = position; self.name = name; self.abbreviation = abbreviation
+        self.team = team; self.teamColor = teamColor; self.gap = gap; self.interval = interval
+        self.laps = laps; self.lastLap = lastLap; self.bestLap = bestLap; self.sectors = sectors
+        self.stops = stops; self.inPit = inPit; self.retired = retired; self.knockedOut = knockedOut
+        self.stints = stints; self.pitOut = pitOut; self.stopped = stopped; self.racingNumber = racingNumber
+        self.recordedTyreHistory = recordedTyreHistory
+    }
     public var currentTyre: LiveTyreStint? { stints.last }
     public var tyreHistory: [TyreHistorySegment] {
+        if let recordedTyreHistory { return recordedTyreHistory }
         let ordered = stints.sorted { $0.id < $1.id }
-        return ordered.enumerated().map { index, stint in
-            let completed = index < ordered.count - 1 ? stint.tyreAge.flatMap { total in
+        return ordered.map { stint in
+            let completed = stint.tyreAge.flatMap { total in
                 stint.initialAge.map { max(0, total - $0) }
-            } : nil
+            }
             return TyreHistorySegment(compound: stint.compound, completedLaps: completed)
         }
     }
@@ -58,6 +72,9 @@ public struct LiveRaceMessage: Codable, Identifiable, Equatable, Sendable {
     public let id: String
     public let date: Date?
     public let message: String
+    public init(id: String, date: Date?, message: String) {
+        self.id = id; self.date = date; self.message = message
+    }
 }
 
 public struct LiveSessionClock: Codable, Equatable, Sendable {

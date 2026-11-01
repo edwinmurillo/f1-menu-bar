@@ -46,7 +46,7 @@ struct TyreHistorySheet: View {
                 Spacer()
                 Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
             }
-            Text("Lap counts are laps driven on each set, not the race lap when it was fitted. The current stint has no final count.")
+            Text("Lap counts are laps driven on each set, not the race lap when it was fitted. The current stint shows its latest reported count.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             ScrollView(.vertical) {
                 VStack(spacing: 0) {

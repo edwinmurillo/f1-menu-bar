@@ -10,23 +10,71 @@ struct LiveTimingView: View {
     @State private var playback = LiveLapPlayback()
     @State private var showsPositions = false
     @State private var simulation: StandingsSimulation?
-    @State private var browsingSessions = false
     @State private var selectedDriver: String?
     @State private var filter = LiveTimingFilter()
     @State private var showsRaceControl = true
     @State private var seenMessages: Set<String> = []
-    private var unreadCount: Int { store.state.snapshot.messages.filter { !seenMessages.contains($0.id) }.count }
+    private var request: RaceHistoryRequest? { coordinator?.timelineRequest }
+    private var currentRequest: RaceHistoryRequest? {
+        guard let season else { return nil }
+        let weekends = season.snapshot.weekends
+        guard let weekend = weekends.first(where: { $0.name.caseInsensitiveCompare(store.state.snapshot.meetingName ?? "") == .orderedSame && season.policy.isOngoing($0, now: season.now, timeZone: preferences.timeZone) })
+                ?? season.policy.featured(in: weekends, now: season.now),
+              season.policy.isOngoing(weekend, now: season.now, timeZone: preferences.timeZone) else { return nil }
+        let started = weekend.activeSessions.filter { $0.start.map { $0 <= season.now } ?? false }.sorted { ($0.start ?? .distantPast) < ($1.start ?? .distantPast) }
+        guard let session = started.last else { return nil }
+        if store.state.snapshot.meetingName?.caseInsensitiveCompare(weekend.name) == .orderedSame,
+           store.state.snapshot.sessionName?.caseInsensitiveCompare(session.name) == .orderedSame,
+           store.state.snapshot.hasFinished { return nil }
+        return RaceHistoryRequest(weekend: weekend, provider: season.snapshot.provider, sessionID: session.id)
+    }
+    private var usesLive: Bool { request == nil || TimingHistoryPresentation.matches(request, currentRequest) }
+    private var historicalRequest: RaceHistoryRequest? { usesLive ? nil : request }
+    private var history: RaceHistory? {
+        guard let historicalRequest else { return nil }
+        if let saved = historyStore?.history, saved.request == historicalRequest { return saved }
+        if let recording = store.recording { return LiveRecordingHistory.make(recording, request: historicalRequest) }
+        return nil
+    }
+    private var messages: [LiveRaceMessage] { usesLive ? (liveSnapshotMatchesSelection ? store.state.snapshot.messages : []) : snapshot.messages }
+    private var unreadCount: Int { usesLive ? messages.filter { !seenMessages.contains($0.id) }.count : 0 }
+    private var canProjectPoints: Bool { usesLive || (historicalRequest?.weekend.year ?? 0) >= 2025 }
+    private var simulationAction: (() -> Void)? {
+        guard let season, TimingHistoryPresentation.canSimulate(state: store.state, request: request, current: currentRequest, usesLive: usesLive) else { return nil }
+        return { simulation = StandingsSimulation.make(season: season.snapshot, timing: snapshot) }
+    }
+    private var liveSnapshotMatchesSelection: Bool {
+        guard let selected = currentRequest else { return true }
+        return store.state.snapshot.meetingName?.caseInsensitiveCompare(selected.weekend.name) == .orderedSame &&
+            store.state.snapshot.sessionName?.caseInsensitiveCompare(selected.session?.name ?? "") == .orderedSame
+    }
     private var recordedSnapshots: [Int: LiveTimingSnapshot] {
+        guard liveSnapshotMatchesSelection else { return [:] }
         guard let recording = store.recording, recording.sessionID == store.state.snapshot.sessionID else { return store.lapSnapshots }
         return recording.isBestLapSession ? recording.practiceSnapshots ?? [:] : recording.laps
     }
-    private var snapshot: LiveTimingSnapshot { playback.lap.flatMap { recordedSnapshots[$0] } ?? store.state.snapshot }
+    private var snapshot: LiveTimingSnapshot {
+        if !usesLive {
+            if let history { return TimingHistoryPresentation.snapshot(history, lap: playback.lap ?? history.lastLap) }
+            var empty = LiveTimingSnapshot()
+            empty.meetingName = request?.weekend.name; empty.sessionName = request?.session?.name
+            return empty
+        }
+        if !liveSnapshotMatchesSelection {
+            var empty = LiveTimingSnapshot()
+            empty.meetingName = currentRequest?.weekend.name; empty.sessionName = currentRequest?.session?.name
+            return empty
+        }
+        return playback.lap.flatMap { recordedSnapshots[$0] } ?? store.state.snapshot
+    }
     private var positionHistory: RaceHistory? {
+        if !usesLive { return history }
+        guard liveSnapshotMatchesSelection else { return nil }
         guard let season, let recording = store.recording,
               recording.sessionID == store.state.snapshot.sessionID else { return nil }
-        for weekend in season.visibleSnapshot.weekends {
+        for weekend in season.snapshot.weekends {
             for session in weekend.activeSessions {
-                let request = RaceHistoryRequest(weekend: weekend, provider: season.visibleSnapshot.provider, sessionID: session.id)
+                let request = RaceHistoryRequest(weekend: weekend, provider: season.snapshot.provider, sessionID: session.id)
                 if let history = LiveRecordingHistory.make(recording, request: request) { return history }
             }
         }
@@ -38,19 +86,19 @@ struct LiveTimingView: View {
     }
 
     var body: some View {
-        Group {
-            if browsingSessions, let season, let historyStore, let coordinator {
-                RaceTimelineView(season: season, historyStore: historyStore, coordinator: coordinator,
-                    preferences: preferences, liveStore: store, returnToLive: {
-                        browsingSessions = false; playback.goLive(); coordinator.timelineRequest = nil
-                    })
-            } else { livePage }
-        }
-        .sheet(item: $simulation) { StandingsSimulationSheet(simulation: $0) }
-        .onAppear { browsingSessions = coordinator?.timelineRequest != nil }
-        .onChange(of: coordinator?.timelineRequest) { _, request in
-            if request != nil { browsingSessions = true }
-        }
+        livePage
+            .sheet(item: $simulation) { StandingsSimulationSheet(simulation: $0) }
+            .onChange(of: usesLive, initial: true) { _, live in coordinator?.wantsLiveTiming = live }
+            .onChange(of: request) { _, _ in
+                playback.goLive(); selectedDriver = nil; filter = LiveTimingFilter(); seenMessages = []
+                simulation = nil
+            }
+            .task(id: historicalRequest) {
+                playback.goLive()
+                if let historicalRequest { await historyStore?.load(historicalRequest) }
+                else { historyStore?.cancel() }
+            }
+            .onDisappear { historyStore?.cancel() }
     }
 
     private var livePage: some View {
@@ -61,7 +109,7 @@ struct LiveTimingView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .onChange(of: store.state.snapshot.sessionID) { _, _ in
-            selectedDriver = nil; filter = LiveTimingFilter(); seenMessages = []; playback.goLive()
+            if usesLive { selectedDriver = nil; filter = LiveTimingFilter(); seenMessages = []; playback.goLive() }
         }
         .onChange(of: snapshot.drivers.map { $0.id + ":" + $0.team }) { _, _ in
             filter.reconcile(with: snapshot.drivers)
@@ -70,14 +118,34 @@ struct LiveTimingView: View {
 
     private func content(minimumHeight: CGFloat, availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "Live timing", subtitle: "Experimental personal connection")
-            LiveTimingConnectionHeader(store: store, preferences: preferences)
+            SectionHeader(title: "Live timing", subtitle: usesLive ? "Experimental personal connection" : "Recorded session · real historical data")
+            sessionSelection
+            if usesLive {
+                if liveSnapshotMatchesSelection { LiveTimingConnectionHeader(store: store, preferences: preferences) }
+                else {
+                    HStack {
+                        Label("Waiting for \(currentRequest?.weekend.name ?? "current GP") · \(currentRequest?.session?.name ?? "session")", systemImage: "clock")
+                        Spacer()
+                        Button(store.isRunning ? "Disconnect" : "Connect") { if store.isRunning { store.disconnect() } else { store.connect() } }
+                    }
+                }
+            }
+            else {
+                HStack {
+                    Label("Recorded · \(snapshot.meetingName ?? "") · \(snapshot.sessionName ?? "")", systemImage: "clock")
+                    Spacer()
+                    Button("Refresh") { if let historicalRequest { Task { await historyStore?.load(historicalRequest, force: true) } } }
+                        .disabled(historyStore?.isLoading == true)
+                }.font(.headline)
+                if let issue = historyStore?.issue { IssueBanner(message: issue) }
+                if historyStore?.isLoading == true { ProgressView().controlSize(.small) }
+            }
             replayControls
             if showsPositions {
                 if let history = positionHistory {
                     RaceHistoryChart(history: history, selectedLap: playback.lap ?? history.lastLap,
                         highlightedDriver: selectedDriver, kind: .positions, gapWindow: 10,
-                        selectLap: { playback.select(Double($0), available: Array(recordedSnapshots.keys)) }).frame(height: 320)
+                        selectLap: { playback.select(Double($0), available: availableLaps) }).frame(height: 320)
                 } else {
                     Text("Position history will appear as session laps are recorded.").foregroundStyle(.secondary)
                 }
@@ -100,7 +168,11 @@ struct LiveTimingView: View {
                 timingPanel(timingWidth: timingWidth, inlineRaceControl: true)
                 if showsRaceControl { raceControl }
             }
-            if snapshot.sessionName?.lowercased() == "race" || snapshot.sessionName?.lowercased() == "sprint" {
+            if !usesLive, let history {
+                ForEach(history.limitations, id: \.self) { Text($0).font(.caption).foregroundStyle(.secondary) }
+                Text("Historical data may omit tyre, pit or interval values.").font(.caption).foregroundStyle(.secondary)
+            }
+            if canProjectPoints && (snapshot.sessionName?.lowercased() == "race" || snapshot.sessionName?.lowercased() == "sprint") {
                 Text("* Projected points for a full-distance finish at this position; final awards may differ.")
                     .font(.caption).foregroundStyle(.secondary)
             }
@@ -113,10 +185,40 @@ struct LiveTimingView: View {
         .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .topLeading)
     }
 
+    private var availableLaps: [Int] { usesLive ? recordedSnapshots.keys.sorted() : history?.laps.map(\.number) ?? [] }
+
+    @ViewBuilder private var sessionSelection: some View {
+        if let season, let coordinator {
+            let calendar = request?.weekend.year == season.visibleSnapshot.year ? season.visibleSnapshot : season.snapshot
+            let options = calendar.weekends.filter { $0.hasStartedTimelineSession(at: season.now) }
+            let weekend = request?.weekend ?? currentRequest?.weekend
+            HStack(spacing: 12) {
+                Picker("Grand Prix", selection: Binding(get: { weekend?.id ?? 0 }, set: { id in
+                    if let picked = options.first(where: { $0.id == id }) {
+                        let latest = picked.activeSessions.filter { $0.start.map { $0 <= season.now } ?? ($0.isGrandPrix && picked.winner != nil) }.last
+                        coordinator.timelineRequest = RaceHistoryRequest(weekend: picked, provider: calendar.provider, sessionID: latest?.id)
+                    }
+                })) {
+                    if weekend == nil { Text("Current session").tag(0) }
+                    ForEach(options) { Text($0.name).tag($0.id) }
+                }.frame(maxWidth: 400)
+                if let weekend {
+                    let sessions = weekend.activeSessions.filter { $0.start.map { $0 <= season.now } ?? ($0.isGrandPrix && weekend.winner != nil) }
+                    Picker("Session", selection: Binding(get: { request?.session?.id ?? currentRequest?.session?.id ?? 0 }, set: { id in
+                        coordinator.timelineRequest = RaceHistoryRequest(weekend: weekend, provider: request?.calendarProvider ?? season.snapshot.provider, sessionID: id)
+                    })) {
+                        ForEach(sessions) { Text($0.name).tag($0.id) }
+                    }.frame(maxWidth: 240)
+                }
+                Spacer(minLength: 0)
+            }.pickerStyle(.menu)
+        }
+    }
+
     private var raceControlToggle: some View {
         Button {
             showsRaceControl.toggle()
-            if showsRaceControl { seenMessages.formUnion(store.state.snapshot.messages.map(\.id)) }
+            if showsRaceControl { seenMessages.formUnion(messages.map(\.id)) }
         } label: {
             HStack(spacing: 6) {
                 if showsRaceControl { Image(systemName: "chevron.right") }
@@ -134,16 +236,25 @@ struct LiveTimingView: View {
     }
 
     private var replayControls: some View {
-        let steps = recordedSnapshots.keys.sorted()
+        let steps = availableLaps
         let current = playback.lap ?? steps.last ?? store.state.snapshot.currentLap ?? 1
-        let bestLapSession = store.recording?.isBestLapSession == true
+        let bestLapSession = usesLive ? store.recording?.isBestLapSession == true : history?.sourceID.hasPrefix("live:") == true && ["practice", "qualifying", "shootout"].contains { snapshot.sessionName?.lowercased().contains($0) == true }
         return VStack(alignment: .leading, spacing: 10) {
             HStack {
-                Text(playback.lap == nil ? "Following live timing" : "Replay · \(bestLapSession ? "Update" : "Lap") \(current)")
+                Button {
+                    if let index = steps.firstIndex(of: current), index > 0 { playback.select(Double(steps[index - 1]), available: steps) }
+                } label: { Label("Previous", systemImage: "chevron.left") }
+                    .disabled(steps.firstIndex(of: current).map { $0 == 0 } ?? true)
+                Text(!usesLive ? "Recorded · \(bestLapSession ? "Update" : "Lap") \(current)" : playback.lap == nil ? "Following live timing" : "Replay · \(bestLapSession ? "Update" : "Lap") \(current)")
                     .font(.headline).monospacedDigit()
                 Spacer()
+                Button {
+                    if let index = steps.firstIndex(of: current), index + 1 < steps.count { playback.select(Double(steps[index + 1]), available: steps) }
+                } label: { Label("Next", systemImage: "chevron.right") }
+                    .disabled(steps.firstIndex(of: current).map { $0 + 1 >= steps.count } ?? true)
                 Button("Go Live") { playback.goLive() }
-                    .buttonStyle(.borderedProminent).disabled(playback.lap == nil)
+                    .buttonStyle(.borderedProminent).disabled(!usesLive || playback.lap == nil)
+                    .help(usesLive ? "Return to the current lap" : "Live is only available for the current ongoing session")
             }
             Slider(value: Binding(get: { Double(current) }, set: { value in
                 playback.select(value, available: steps)
@@ -166,8 +277,11 @@ struct LiveTimingView: View {
             if snapshot.drivers.isEmpty {
                 if inlineRaceControl { raceControlToggle }
                 Spacer(minLength: 24)
-                LiveTimingPlaceholder(phase: store.state.phase, isRunning: store.isRunning)
-                    .frame(maxWidth: .infinity)
+                if usesLive {
+                    LiveTimingPlaceholder(phase: store.state.phase, isRunning: store.isRunning).frame(maxWidth: .infinity)
+                } else {
+                    ContentUnavailableView("No recorded laps available", systemImage: "clock", description: Text("This session's provider has not published lap data yet."))
+                }
                 Spacer(minLength: 24)
             } else {
                 HStack(spacing: 12) {
@@ -184,7 +298,7 @@ struct LiveTimingView: View {
                     }
                 } else {
                     LiveTimingRows(drivers: drivers, selectedDriver: selected?.id, select: { selectedDriver = $0 }, availableWidth: timingWidth, fastestDriverIDs: LiveFastestLap.driverIDs(in: snapshot.drivers), sessionName: snapshot.sessionName,
-                        simulate: season.map { season in { simulation = StandingsSimulation.make(season: season.snapshot, timing: snapshot) } })
+                        simulate: simulationAction, projectedPointsEnabled: canProjectPoints)
                     if let driver = selected { driverDetail(driver) }
                 }
             }
@@ -196,18 +310,18 @@ struct LiveTimingView: View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Spacer()
-                Button("Mark read") { seenMessages.formUnion(store.state.snapshot.messages.map(\.id)) }
-                    .disabled(unreadCount == 0)
+                if usesLive { Button("Mark read") { seenMessages.formUnion(messages.map(\.id)) }
+                    .disabled(unreadCount == 0) }
             }
-            if store.state.snapshot.messages.isEmpty {
-                Text("Waiting for race control messages…").foregroundStyle(.secondary)
+            if messages.isEmpty {
+                Text(usesLive ? "Waiting for race control messages…" : "No recorded race control messages for this lap.").foregroundStyle(.secondary)
             }
-            ForEach(store.state.snapshot.messages) { message in
+            ForEach(messages) { message in
                 VStack(alignment: .leading, spacing: 5) {
                     HStack {
                         Text(message.date.map { Presentation.date($0, format: "jmmss", zone: preferences.timeZone) } ?? "—")
                             .foregroundStyle(.secondary).monospacedDigit()
-                        if !seenMessages.contains(message.id) {
+                        if usesLive && !seenMessages.contains(message.id) {
                             Text("NEW").font(.caption2.bold()).foregroundStyle(.blue)
                         }
                     }
@@ -243,7 +357,7 @@ struct LiveTimingView: View {
     }
 
     @ViewBuilder private var sourceAndWeather: some View {
-        Text("Experimental · Direct F1 timing · Provisional data").foregroundStyle(.secondary)
+        Text(usesLive ? "Experimental · Direct F1 timing · Provisional data" : "Recorded · \(history.map { Presentation.providerName($0.provider) } ?? "Historical provider") · Missing data stays unavailable").foregroundStyle(.secondary)
         if let air = snapshot.airTemperature { Text("Air \(air)°C") }
         if let track = snapshot.trackTemperature { Text("Track \(track)°C") }
         Link("Official live timing", destination: URL(string: "https://www.formula1.com/en/timing/f1-live")!)
