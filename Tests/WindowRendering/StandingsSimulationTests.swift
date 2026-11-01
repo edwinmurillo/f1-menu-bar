@@ -54,7 +54,7 @@ import XCTest
         timing.drivers = [driver("1", position: 1)]
         XCTAssertTrue(StandingsSimulation.make(season: season, timing: timing).notes.contains { $0.contains("team points are unassigned") })
     }
-    func testModalRendersBothTablesWithinBoundedWindow() throws {
+    func testModalTabsFitWithinBoundedWindow() throws {
         _ = NSApplication.shared
         let (season, timing) = inputs()
         let view = StandingsSimulationSheet(simulation: .make(season: season, timing: timing))

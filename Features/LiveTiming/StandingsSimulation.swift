@@ -73,6 +73,7 @@ struct StandingsSimulation: Identifiable {
 
 struct StandingsSimulationSheet: View {
     let simulation: StandingsSimulation
+    @State private var showsTeams = false
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -82,18 +83,26 @@ struct StandingsSimulationSheet: View {
                 Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
             Text(simulation.session).foregroundStyle(.secondary)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
-                    standings("Drivers", rows: simulation.drivers)
-                    standings("Teams", rows: simulation.teams)
-                    ForEach(Array(simulation.notes.enumerated()), id: \.offset) { _, note in
-                        Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
+            Picker("Standings", selection: $showsTeams) {
+                Text("Drivers").tag(false)
+                Text("Teams").tag(true)
+            }.pickerStyle(.segmented).labelsHidden().frame(width: 240)
+            simulationTab(showsTeams ? "Teams" : "Drivers", rows: showsTeams ? simulation.teams : simulation.drivers)
+                .id(showsTeams)
         }.padding(24).frame(width: 700, height: 650)
             .background(Color(nsColor: .windowBackgroundColor)).tint(Color.primary)
     }
+    private func simulationTab(_ title: String, rows: [StandingsSimulation.Row]) -> some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 20) {
+                standings(title, rows: rows)
+                ForEach(Array(simulation.notes.enumerated()), id: \.offset) { _, note in
+                    Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                }
+            }.padding(14)
+        }
+    }
+
     private func standings(_ title: String, rows: [StandingsSimulation.Row]) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(title).font(.headline)
