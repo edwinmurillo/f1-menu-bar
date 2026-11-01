@@ -36,7 +36,7 @@ struct TrackMapView: View {
             guard let number = driver.driverNumber else { return nil }
             return (number, driver.name, driver.teamColor)
         }
-        return .preview(drivers: live.isEmpty ? standings : live)
+        return .preview(drivers: live.isEmpty ? standings : live, outline: TrackLayoutCatalog.outline(for: weekend))
     }
     private var shown: TrackMapReplay { replay ?? preview }
 
@@ -48,8 +48,8 @@ struct TrackMapView: View {
                     controls
                     if let issue { IssueBanner(message: issue) }
                     if shown.cars.isEmpty {
-                        ContentUnavailableView("Waiting for a driver roster", systemImage: "point.topleft.down.curvedto.point.bottomright.up",
-                                               description: Text("The map preview will appear when the calendar or live timing has loaded driver names."))
+                        ContentUnavailableView("Track map unavailable", systemImage: "point.topleft.down.curvedto.point.bottomright.up",
+                                               description: Text("A circuit layout and driver roster are needed to show the preview. Try another Grand Prix or refresh the calendar."))
                             .frame(maxWidth: .infinity, minHeight: 320)
                     } else {
                         HStack(alignment: .top, spacing: 14) {
@@ -59,7 +59,7 @@ struct TrackMapView: View {
                         playbackControls
                     }
                     Text(shown.isPreview
-                         ? "Illustrative preview · The outline and moving cars are simulated. Select a session to request actual OpenF1 coordinates."
+                         ? "Real circuit outline · Car positions are illustrative until OpenF1 location samples load."
                          : "OpenF1 location samples · Approximate car positions for lap \(shown.lap). The outline is traced from one driver's recorded path; lateral placement is not precise.")
                         .font(.caption).foregroundStyle(.secondary)
                     Link("About OpenF1 location data", destination: URL(string: "https://openf1.org/docs/#location")!)
@@ -99,12 +99,12 @@ struct TrackMapView: View {
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 7) {
                     Circle().fill(shown.isPreview ? .orange : .green).frame(width: 7, height: 7)
-                    Text(shown.isPreview ? "PREVIEW" : "OPENF1 · LAP \(shown.lap)")
+                    Text(shown.isPreview ? "REAL LAYOUT · SIMULATED CARS" : "OPENF1 · LAP \(shown.lap)")
                         .font(.caption2.weight(.bold)).tracking(0.8)
                 }
                 .padding(10).background(.regularMaterial, in: Capsule()).padding(14)
             }
-            .accessibilityLabel(shown.isPreview ? "Illustrative track map preview" : "Track map from OpenF1 location samples")
+            .accessibilityLabel(shown.isPreview ? "Real circuit outline with simulated car positions" : "Track map from OpenF1 location samples")
     }
 
     private var driverList: some View {

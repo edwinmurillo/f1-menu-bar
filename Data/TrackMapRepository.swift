@@ -10,6 +10,7 @@ struct TrackLocationDTO: Decodable, Sendable {
 public struct TrackMapPoint: Sendable {
     public let x: Double
     public let y: Double
+    public init(x: Double, y: Double) { self.x = x; self.y = y }
 }
 
 public struct TrackMapSample: Sendable {
@@ -47,13 +48,30 @@ public struct TrackMapReplay: Sendable {
     public let lap: Int
     public let isPreview: Bool
 
-    public static func preview(drivers: [(number: Int, name: String, color: String?)]) -> Self {
-        // A deliberately generic closed loop for checking layout and animation offline.
-        // Its shape and car positions are illustrative, never presented as race telemetry.
-        let outline = (0...120).map { index -> TrackMapPoint in
-            let angle = Double(index) / 120 * 2 * Double.pi
-            return TrackMapPoint(x: cos(angle) * (1 + 0.19 * cos(3 * angle)) + 0.18 * sin(4 * angle),
-                                 y: sin(angle) * (0.72 + 0.12 * sin(5 * angle)))
+    public static func preview(drivers: [(number: Int, name: String, color: String?)], outline: [TrackMapPoint]) -> Self {
+        guard outline.count >= 3 else { return Self(cars: [], outline: [], duration: 12, lap: 0, isPreview: true) }
+        // The circuit shape is measured geography. Only the car movement is illustrative.
+        let closed = outline + [outline[0]]
+        var distances = [0.0]
+        for index in 1..<closed.count {
+            let dx = closed[index].x - closed[index - 1].x
+            let dy = closed[index].y - closed[index - 1].y
+            distances.append(distances[index - 1] + hypot(dx, dy))
+        }
+        let length = distances.last ?? 0
+        guard length > 0 else { return Self(cars: [], outline: outline, duration: 12, lap: 0, isPreview: true) }
+        func coordinate(at fraction: Double) -> TrackMapPoint {
+            let target = fraction.truncatingRemainder(dividingBy: 1) * length
+            var low = 0, high = distances.count - 1
+            while low < high {
+                let middle = (low + high) / 2
+                if distances[middle] < target { low = middle + 1 } else { high = middle }
+            }
+            let next = low
+            guard next > 0 else { return closed[0] }
+            let ratio = (target - distances[next - 1]) / max(distances[next] - distances[next - 1], 0.001)
+            return TrackMapPoint(x: closed[next - 1].x + (closed[next].x - closed[next - 1].x) * ratio,
+                                 y: closed[next - 1].y + (closed[next].y - closed[next - 1].y) * ratio)
         }
         let roster = Array(drivers.prefix(22))
         let cars = roster.enumerated().map { index, driver in
@@ -61,7 +79,7 @@ public struct TrackMapReplay: Sendable {
                         abbreviation: String(driver.name.split(separator: " ").last ?? "CAR").prefix(3).uppercased(),
                         teamColor: driver.color,
                         samples: (0...120).map { step in
-                let point = outline[(step + 120 - (index * 4) % 120) % 120]
+                let point = coordinate(at: Double(step) / 120 + Double(index) / Double(max(roster.count, 1)))
                 return TrackMapSample(seconds: Double(step) / 120 * 12, point: point)
             })
         }

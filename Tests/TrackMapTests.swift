@@ -2,6 +2,18 @@ import XCTest
 @testable import F1Core
 
 final class TrackMapTests: XCTestCase {
+    func testPreviewFollowsProvidedCircuitRatherThanGeneratingAShape() throws {
+        let corners = [(0.0, 0.0), (100.0, 0.0), (100.0, 100.0), (0.0, 100.0)]
+            .map { TrackMapPoint(x: $0.0, y: $0.1) }
+        let replay = TrackMapReplay.preview(drivers: [(1, "First Driver", "FF0000"), (2, "Second Driver", "0000FF")], outline: corners)
+        XCTAssertTrue(replay.isPreview)
+        XCTAssertEqual(replay.outline.count, 4)
+        XCTAssertEqual(try XCTUnwrap(replay.cars[0].position(at: 0)).x, 0, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(replay.cars[0].position(at: 6)).x, 100, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(replay.cars[1].position(at: 0)).y, 100, accuracy: 0.01)
+        XCTAssertTrue(TrackMapReplay.preview(drivers: [], outline: []).cars.isEmpty)
+    }
+
     func testLocationSamplesTraceALapAndInterpolateCars() async throws {
         let start = Date(timeIntervalSince1970: 1_700_000_000)
         let formatter = ISO8601DateFormatter()
