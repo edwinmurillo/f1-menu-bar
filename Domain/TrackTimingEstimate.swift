@@ -8,9 +8,9 @@ public struct TrackTimingEstimate: Sendable {
     public let progressByNumber: [Int: Double]
 
     /// Replays the leader's most recently completed lap at twice its recorded speed.
-    public static func make(snapshot: LiveTimingSnapshot, playbackSeconds: Double, now: Date) -> Self? {
+    public static func make(snapshot: LiveTimingSnapshot, playbackSeconds: Double, lap selectedLap: Int? = nil) -> Self? {
         guard ["Race", "Sprint"].contains(snapshot.sessionName ?? ""),
-              snapshot.hasFreshTiming(at: now), let currentLap = snapshot.currentLap,
+              let currentLap = snapshot.currentLap,
               let leader = snapshot.drivers.first(where: { $0.position == 1 && !$0.isOutOfRunning && !$0.inPit }),
               let leaderNumber = Int(leader.id) else { return nil }
         guard let lapTime = leader.lastLap.flatMap(LapDuration.seconds),
@@ -25,7 +25,7 @@ public struct TrackTimingEstimate: Sendable {
             let fraction = (leaderProgress - behind).truncatingRemainder(dividingBy: 1)
             progress[number] = fraction < 0 ? fraction + 1 : fraction
         }
-        return Self(lap: max(currentLap - 1, 1), leaderNumber: leaderNumber, leaderLapTime: lapTime,
+        return Self(lap: selectedLap ?? max(currentLap - 1, 1), leaderNumber: leaderNumber, leaderLapTime: lapTime,
                     progressByNumber: progress)
     }
 

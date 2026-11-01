@@ -43,9 +43,10 @@ struct TrackMapView: View {
             name.caseInsensitiveCompare(session.name) == .orderedSame
     }
     private var timingEstimate: TrackTimingEstimate? {
-        guard shown.isPreview, matchesLiveSession, liveStore.state.phase == .connected else { return nil }
+        guard shown.isPreview, matchesLiveSession, liveStore.state.phase == .connected,
+              liveStore.state.snapshot.hasFreshTiming(at: clockNow) else { return nil }
         return TrackTimingEstimate.make(snapshot: liveStore.state.snapshot,
-            playbackSeconds: playhead, now: clockNow)
+            playbackSeconds: playhead)
     }
     private var preview: TrackMapReplay {
         let live = liveStore.state.snapshot.drivers.compactMap { driver -> (number: Int, name: String, color: String?)? in

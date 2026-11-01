@@ -80,6 +80,27 @@ struct LiveTimingView: View {
         return nil
     }
     private var drivers: [LiveDriverTiming] { filter.apply(to: snapshot.drivers) }
+    private var mapWeekend: RaceWeekend? {
+        if let request { return request.weekend }
+        if let currentRequest { return currentRequest.weekend }
+        guard let meeting = snapshot.meetingName else { return nil }
+        return season?.snapshot.weekends.first { $0.name.caseInsensitiveCompare(meeting) == .orderedSame }
+    }
+    private var mapLap: Int { playback.lap ?? snapshot.currentLap ?? 1 }
+    @ViewBuilder private var timingHeader: some View {
+        let title = SectionHeader(title: "Live timing", subtitle: usesLive ? "Experimental personal connection" : "Recorded session · real historical data")
+        if let weekend = mapWeekend,
+           ["Race", "Sprint"].contains(snapshot.sessionName ?? ""),
+           TrackTimingEstimate.make(snapshot: snapshot, playbackSeconds: 0) != nil,
+           TrackLayoutCatalog.outline(for: weekend).count > 2 {
+            HStack(alignment: .top) {
+                title
+                Spacer(minLength: 10)
+                LiveTimingTrackMiniature(snapshot: snapshot, weekend: weekend, lap: mapLap)
+                    .id("\(snapshot.sessionID ?? ""):\(mapLap):\(snapshot.drivers.first(where: { $0.position == 1 })?.lastLap ?? "")")
+            }
+        } else { title }
+    }
 
     var body: some View {
         livePage
@@ -114,7 +135,7 @@ struct LiveTimingView: View {
 
     private func content(minimumHeight: CGFloat, availableWidth: CGFloat) -> some View {
         VStack(alignment: .leading, spacing: 16) {
-            SectionHeader(title: "Live timing", subtitle: usesLive ? "Experimental personal connection" : "Recorded session · real historical data")
+            timingHeader
             sessionSelection
             if usesLive {
                 if liveSnapshotMatchesSelection { LiveTimingConnectionHeader(store: store, preferences: preferences) }
