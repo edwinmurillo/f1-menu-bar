@@ -43,8 +43,6 @@ enum LiveProjectedPoints {
 
 struct LiveTimingRows: View {
     let drivers: [LiveDriverTiming]
-    let selectedDriver: String?
-    let select: (String) -> Void
     let availableWidth: CGFloat
     var fastestDriverIDs: Set<String> = []
     var sessionName: String? = nil
@@ -117,7 +115,7 @@ struct LiveTimingRows: View {
                         .help(driver.retired ? "Retired from the session" : driver.isOutOfRunning ? "Stopped outside the pit lane" : driver.inPit ? "In pit lane" : driver.pitOut == true ? "Out lap" : "On track")
                 }.font(.callout).monospacedDigit()
                     .padding(.horizontal, 10).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(driver.isOutOfRunning ? Color.secondary.opacity(0.08) : selectedDriver == driver.id ? Presentation.accent.opacity(0.08) : Color.clear)
+                    .background(driver.isOutOfRunning ? Color.secondary.opacity(0.08) : driver.position == 1 ? Presentation.accent.opacity(0.08) : Color.clear)
                     .disabled(driver.isOutOfRunning)
                     .opacity(driver.isOutOfRunning ? 0.45 : 1)
                 Divider()
@@ -135,11 +133,7 @@ struct LiveTimingRows: View {
             DriverNumberBadge(number: driver.racingNumber ?? (Int(driver.id) == nil ? "—" : driver.id), team: driver.team, colorHex: driver.teamColor)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
-                    Button { select(driver.id) } label: {
-                        Text(driver.name).fontWeight(.medium).fixedSize(horizontal: false, vertical: true)
-                    }.buttonStyle(.plain)
-                        .accessibilityLabel("Show timing details for \(driver.name)")
-                        .accessibilityAddTraits(selectedDriver == driver.id ? [.isSelected] : [])
+                    Text(driver.name).fontWeight(.medium).fixedSize(horizontal: false, vertical: true)
                     if fastestDriverIDs.contains(driver.id) {
                         Button { fastestLapDriver = driver.id } label: {
                             Image(systemName: "stopwatch")
