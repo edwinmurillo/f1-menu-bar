@@ -85,6 +85,7 @@ public struct LiveTimingSnapshot: Codable, Equatable, Sendable {
     public var sessionName: String?
     public var sessionStatus: String?
     public var trackStatus: String?
+    public var trackStatusCode: String?
     public var currentLap: Int?
     public var totalLaps: Int?
     public var airTemperature: String?

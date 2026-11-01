@@ -161,6 +161,7 @@ struct LiveTimingReducer {
         result.sessionName = info["Name"].text ?? info["Type"].text
         result.sessionStatus = topics["SessionStatus"]?["Status"].text
         result.trackStatus = topics["TrackStatus"]?["Message"].text
+        result.trackStatusCode = topics["TrackStatus"]?["Status"].text
         result.currentLap = topics["LapCount"]?["CurrentLap"].int
         result.totalLaps = topics["LapCount"]?["TotalLaps"].int
         result.airTemperature = topics["WeatherData"]?["AirTemp"].text

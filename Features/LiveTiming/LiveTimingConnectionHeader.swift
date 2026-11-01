@@ -22,6 +22,65 @@ enum LiveTimingConnectionPresentation {
     }
 }
 
+enum LiveTrackIndicator: Equatable {
+    case clear, yellow, safetyCar, red, virtualSafetyCar, virtualSafetyCarEnding, pitExitClosed, pitExitOpen, unknown
+
+    static func resolve(message: String?, code: String?, sessionStatus: String? = nil) -> Self {
+        if sessionStatus == "Aborted" { return .red }
+        func normalized(_ value: String?) -> String { (value ?? "").lowercased().filter { $0.isLetter || $0.isNumber } }
+        let text = normalized(message)
+        if text.contains("pitexitclosed") { return .pitExitClosed }
+        if text.contains("pitexitopen") { return .pitExitOpen }
+        switch normalized(code) {
+        case "1": return .clear
+        case "2": return .yellow
+        case "4": return .safetyCar
+        case "5": return .red
+        case "6": return .virtualSafetyCar
+        case "7": return .virtualSafetyCarEnding
+        default: break
+        }
+        switch text {
+        case "allclear", "clear", "green": return .clear
+        case "yellow", "yellowflag", "doubleyellow": return .yellow
+        case "scdeployed", "safetycardeployed": return .safetyCar
+        case "red", "redflag": return .red
+        case "vscdeployed", "virtualsafetycardeployed": return .virtualSafetyCar
+        case "vscending", "virtualsafetycarending": return .virtualSafetyCarEnding
+        default: return .unknown
+        }
+    }
+    var title: String? {
+        switch self {
+        case .clear: "All Clear"
+        case .yellow: "Yellow flag"
+        case .safetyCar: "Safety Car deployed"
+        case .red: "Red flag"
+        case .virtualSafetyCar: "Virtual Safety Car deployed"
+        case .virtualSafetyCarEnding: "Virtual Safety Car ending"
+        case .pitExitClosed: "Pit exit closed"
+        case .pitExitOpen: "Pit exit open"
+        case .unknown: nil
+        }
+    }
+    var color: Color {
+        switch self {
+        case .clear: .blue
+        case .red, .pitExitClosed: .red
+        case .yellow, .safetyCar, .virtualSafetyCar, .virtualSafetyCarEnding: .yellow
+        case .pitExitOpen: .green
+        case .unknown: .secondary
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .pitExitClosed, .pitExitOpen: "circle.fill"
+        case .unknown: "questionmark.circle"
+        default: "flag.fill"
+        }
+    }
+}
+
 struct LiveTimingConnectionHeader: View {
     let store: LiveTimingStore
     let preferences: AppPreferences
@@ -48,10 +107,10 @@ struct LiveTimingConnectionHeader: View {
                         Text(state.snapshot.totalLaps.map { "Lap \(lap) / \($0)" } ?? "Lap \(lap)")
                             .monospacedDigit()
                     }
-                    if let track = state.snapshot.trackStatus {
-                        Label(track, systemImage: "flag.fill")
-                            .foregroundStyle(track.localizedCaseInsensitiveContains("clear") ? Color.blue :
-                                track.localizedCaseInsensitiveContains("red") ? Color.red : Color.yellow)
+                    if state.snapshot.trackStatus != nil || state.snapshot.trackStatusCode != nil || state.snapshot.sessionStatus == "Aborted" {
+                        let indicator = LiveTrackIndicator.resolve(message: state.snapshot.trackStatus, code: state.snapshot.trackStatusCode, sessionStatus: state.snapshot.sessionStatus)
+                        Label(indicator.title ?? state.snapshot.trackStatus ?? "Unknown track status", systemImage: indicator.symbol)
+                            .foregroundStyle(indicator.color)
                     }
                     Spacer()
                     if let date = state.snapshot.receivedAt {
