@@ -1,5 +1,7 @@
 # F1 Menu Bar — proposed project plan
 
+Track map experiment (1 November 2026): Add a separate Track map sidebar section. Read one bounded, historical session lap from OpenF1 `laps`, `location`, and `drivers`; trace the circuit from a sampled driver path and animate timestamped positions for the other cars. Keep this separate from live timing ownership. OpenF1 may return 401 globally during live sessions; provide an explicitly illustrative, non-telemetry preview for immediate UI testing and show the access error. Jolpica lap positions do not supply car coordinates.
+
 Prepared on 25 October 2026. The name is provisional. Implementation was authorized later that day; this document preserves the original requirements and API research. See `README.md` and `docs/VERIFICATION.md` for current delivery status.
 
 ## 1. Product goal

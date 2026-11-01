@@ -4,11 +4,12 @@ import Observation
 import SwiftUI
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case live, calendar, drivers, constructors, settings
+    case live, trackMap, calendar, drivers, constructors, settings
     var id: String { rawValue }
     var title: String {
         switch self {
         case .live: "Live timing"
+        case .trackMap: "Track map"
         default: rawValue.capitalized
         }
     }
@@ -18,6 +19,7 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .drivers: "person.crop.circle"
         case .constructors: "flag.checkered"
         case .live: "dot.radiowaves.left.and.right"
+        case .trackMap: "point.topleft.down.curvedto.point.bottomright.up"
         case .settings: "slider.horizontal.3"
         }
     }
