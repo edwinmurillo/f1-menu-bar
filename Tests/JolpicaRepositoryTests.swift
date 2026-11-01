@@ -2,6 +2,16 @@ import XCTest
 @testable import F1Core
 
 final class JolpicaRepositoryTests: XCTestCase {
+    func testFailedPodiumRefreshPreservesPublishedPlacesAndWinner() async throws {
+        let previous = try await repository(FixtureTransport(responses: JolpicaFixtures.responses)).refresh(year: 2026, previous: nil, publish: { _ in })
+        var responses = JolpicaFixtures.responses
+        responses["2.json"] = HTTPResponse(data: Data(), status: 503)
+        let value = try await repository(FixtureTransport(responses: responses)).refresh(year: 2026, previous: previous, publish: { _ in })
+        XCTAssertEqual(value.weekends[0].podium, previous.weekends[0].podium)
+        XCTAssertEqual(value.weekends[0].winner, previous.weekends[0].winner)
+        XCTAssertNotNil(value.issues[.results])
+    }
+
     func testCalendarWinnersSprintOrderAndPublishedStandings() async throws {
         let transport = FixtureTransport(responses: JolpicaFixtures.responses)
         let value = try await repository(transport).refresh(year: 2026, previous: nil, publish: { _ in })
@@ -9,6 +19,8 @@ final class JolpicaRepositoryTests: XCTestCase {
         XCTAssertTrue(value.issues.isEmpty)
         XCTAssertEqual(value.weekends.count, 2)
         XCTAssertEqual(value.weekends[0].winner?.driverName, "Fixture Winner")
+        XCTAssertEqual(value.weekends[0].podium?.map(\.position), [1, 2, 3])
+        XCTAssertEqual(value.weekends[0].podium?.map { $0.driver.driverName }, ["Fixture Winner", "Silver Driver", "Bronze Driver"])
         XCTAssertEqual(value.weekends[0].qualifyingWinner?.driverID, "winner")
         XCTAssertNotNil(value.qualifyingUpdatedAt)
         XCTAssertNil(value.weekends[1].winner)
@@ -212,6 +224,8 @@ private enum JolpicaFixtures {
     """)
     static let responses: [String: HTTPResponse] = [
         "2026.json": schedule,
+        "2.json": podiumResult(position: 2, number: 8, given: "Silver", family: "Driver"),
+        "3.json": podiumResult(position: 3, number: 7, given: "Bronze", family: "Driver"),
         "/ergast/f1/2026/qualifying/1.json": qualifying,
         "1.json": Fixtures.json("""
         {"MRData":{"total":"1","offset":"0","RaceTable":{"Races":[\(firstRace.dropLast()),
@@ -229,6 +243,13 @@ private enum JolpicaFixtures {
         {"position":"1","positionText":"1","points":"20.5","Constructor":\(constructor)}]}]}}}
         """)
     ]
+
+    static func podiumResult(position: Int, number: Int, given: String, family: String) -> HTTPResponse {
+        Fixtures.json("""
+        {"MRData":{"total":"1","offset":"0","RaceTable":{"Races":[\(firstRace.dropLast()),
+        "Results":[{"position":"\(position)","number":"\(number)","Driver":{"driverId":"driver\(number)","permanentNumber":"\(number)","givenName":"\(given)","familyName":"\(family)"},"Constructor":\(constructor)}]}]}}}
+        """)
+    }
 
     static let qualifying = qualifyingPage(total: 2, offset: 0, positions: ["1", "4"])
 

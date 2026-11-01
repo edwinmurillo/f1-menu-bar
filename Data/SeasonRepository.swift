@@ -51,8 +51,13 @@ public actor OpenF1Repository: SeasonRepository {
         catch { metadataError = error.localizedDescription }
 
         do {
-            let results: [ResultDTO] = try await client.get("session_result", query: range + [URLQueryItem(name: "position", value: "1")])
+            let results: [ResultDTO] = try await client.get("session_result", query: range + [URLQueryItem(name: "position<", value: "4")])
             try Task.checkCancellation()
+            let classified = results.filter { knownIDs.contains($0.sessionKey) && (1...3).contains($0.position ?? 0) }
+            guard Set(classified.map { "\($0.sessionKey)-\($0.position!)" }).count == classified.count,
+                  Set(classified.map { "\($0.sessionKey)-\($0.driverNumber)" }).count == classified.count else {
+                throw APIError.invalidData("duplicate podium positions")
+            }
             let winners = results.filter { knownIDs.contains($0.sessionKey) && $0.position == 1 }
             guard Set(winners.map(\.sessionKey)).count == winners.count else { throw APIError.invalidData("duplicate session winners") }
             for index in value.weekends.indices {
@@ -69,6 +74,20 @@ public actor OpenF1Repository: SeasonRepository {
                         team: driver?.teamName ?? old?.team ?? "Team unavailable")
                     if session.isGrandPrix { value.weekends[index].winner = winner }
                     else { value.weekends[index].qualifyingWinner = winner }
+                }
+            }
+            for index in value.weekends.indices {
+                let weekend = value.weekends[index]
+                guard !weekend.isCancelled, !weekend.isMissingFromSchedule,
+                      let session = weekend.grandPrix, !session.isCancelled, (session.start ?? .distantFuture) <= now() else { continue }
+                let entries = classified.filter { $0.sessionKey == session.id }.sorted { $0.position! < $1.position! }
+                guard !entries.isEmpty else { continue }
+                value.weekends[index].podium = entries.map { result in
+                    let person = Self.driver(result.driverNumber, at: session, directory: directory, sessions: allSessions)
+                    let old = weekend.podium?.first { $0.driver.driverNumber == result.driverNumber }?.driver
+                    return RacePodiumPlace(position: result.position!, driver: RaceWinner(driverNumber: result.driverNumber,
+                        driverName: person?.name ?? old?.driverName ?? "Driver \(result.driverNumber)",
+                        team: person?.teamName ?? old?.team ?? "Team unavailable"))
                 }
             }
             value.resultsUpdatedAt = now()
@@ -160,12 +179,14 @@ public actor OpenF1Repository: SeasonRepository {
                 .sorted { ($0.start ?? .distantFuture, $0.id) < ($1.start ?? .distantFuture, $1.id) }
             let old = previous.first { $0.id == meeting.meetingKey }
             let race = sorted.first(where: \.isGrandPrix)
-            return RaceWeekend(id: meeting.meetingKey, year: year, name: meeting.meetingName,
+            var weekend = RaceWeekend(id: meeting.meetingKey, year: year, name: meeting.meetingName,
                 circuit: meeting.circuitShortName ?? "Circuit to be announced", country: meeting.countryName ?? "",
                 location: meeting.location ?? "", start: meeting.dateStart, sessions: sorted,
                 isCancelled: (meeting.isCancelled ?? false) || (race?.isCancelled ?? false),
                 winner: old?.grandPrix?.id == race?.id ? old?.winner : nil,
                 qualifyingWinner: old?.sessions.first(where: \.isQualifying)?.id == sorted.first(where: \.isQualifying)?.id ? old?.qualifyingWinner : nil)
+            weekend.podium = old?.grandPrix?.id == race?.id ? old?.podium : nil
+            return weekend
         }
         let ids = Set(mapped.map(\.id))
         mapped += previous.filter { !ids.contains($0.id) }.map { old in

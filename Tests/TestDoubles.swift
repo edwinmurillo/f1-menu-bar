@@ -50,7 +50,7 @@ enum Fixtures {
          {"driver_number":8,"session_key":9999,"first_name":"Wrong","last_name":"Season","team_name":"Wrong"}]
         """),
         "session_result": json("""
-        [{"session_key":13,"position":1,"driver_number":9},{"session_key":11,"position":1,"driver_number":3}]
+        [{"session_key":13,"position":1,"driver_number":9},{"session_key":13,"position":2,"driver_number":8},{"session_key":13,"position":3,"driver_number":15},{"session_key":11,"position":1,"driver_number":3}]
         """),
         "championship_drivers": json("""
         [{"session_key":13,"driver_number":9,"position_current":2,"points_current":10.5},

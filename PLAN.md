@@ -241,3 +241,5 @@ Replace the fixed preview limits with one-line previews that fit the available w
 - Live Pts* column includes compact padded values and a Simulate sheet for full-field driver/team totals, with explicit baseline context and session double-count protection.
 
 - Calendar Ongoing status mirrors the menu. Add centered racing numbers to driver name cells and gold clinched-title trophies to published and projected standings, using conservative remaining GP/Sprint point capacity.
+
+- Calendar: flags after day numbers, persistent circuit subtitles, and published gold/silver/bronze GP podiums in rows and details, supported independently by both providers.

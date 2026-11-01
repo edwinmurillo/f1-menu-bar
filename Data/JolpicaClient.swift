@@ -7,8 +7,10 @@ public actor JolpicaClient {
         http = JSONHTTPClient(transport: transport, requestSpacing: requestSpacing)
     }
 
-    func races(year: Int, winnersOnly: Bool = false) async throws -> [JolpicaRace] {
-        try await rows("\(year)\(winnersOnly ? "/results/1" : "")") { page in
+    func races(year: Int, winnersOnly: Bool = false, finishingPosition: Int? = nil) async throws -> [JolpicaRace] {
+        let position = finishingPosition ?? (winnersOnly ? 1 : nil)
+        if let position, !(1...3).contains(position) { throw APIError.invalidData("invalid podium position") }
+        return try await rows("\(year)\(position.map { "/results/\($0)" } ?? "")") { page in
             guard let table = page.races else { throw APIError.invalidData("missing Jolpica calendar") }
             return table.races
         }

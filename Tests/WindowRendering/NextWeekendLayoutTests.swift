@@ -78,6 +78,7 @@ import XCTest
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "CalendarOngoing-\(UUID().uuidString)")!)
         preferences.useUTC = true
         let root = CalendarView(store: store, preferences: preferences, coordinator: AppCoordinator())
+            .frame(width: 1000, height: 720)
             .background(Color(nsColor: .windowBackgroundColor)).tint(Color.primary)
         let host = NSHostingView(rootView: root)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
@@ -85,12 +86,44 @@ import XCTest
         defer { store.cancelRefresh(); window.contentView = nil; window.close() }
         window.appearance = NSAppearance(named: .darkAqua)
         host.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(host.bounds.height, 700)
         XCTAssertLessThanOrEqual(host.fittingSize.height, 721)
         let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
         host.cacheDisplay(in: host.bounds, to: bitmap)
         let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appending(path: ".build/screenshots")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: directory.appending(path: "calendar-ongoing-dark.png"))
+    }
+
+    func testCalendarFlagCircuitAndPublishedPodiumFit() async throws {
+        _ = NSApplication.shared
+        let parser = ISO8601DateFormatter()
+        var snapshot = try fixture(parser)
+        let old = try XCTUnwrap(snapshot.weekends.first)
+        var weekend = RaceWeekend(id: old.id, year: old.year, name: old.name, circuit: "Circuit name", country: "Mexico", sessions: old.sessions)
+        weekend.podium = (1...3).map { RacePodiumPlace(position: $0, driver: RaceWinner(driverNumber: $0, driverName: ["Fixture Gold", "Fixture Silver", "Fixture Bronze"][$0 - 1], team: "Team")) }
+        weekend.winner = weekend.podium?.first?.driver
+        snapshot.weekends = [weekend]
+        let now = try XCTUnwrap(parser.date(from: "2026-11-01T20:00:00Z"))
+        let store = SeasonStore(repository: PanelRepository(snapshot: snapshot), clock: { now })
+        await store.start()
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "CalendarPodium-\(UUID().uuidString)")!)
+        let root = CalendarView(store: store, preferences: preferences, coordinator: AppCoordinator())
+            .frame(width: 1000, height: 720)
+            .background(Color(nsColor: .windowBackgroundColor)).tint(Color.primary)
+        let host = NSHostingView(rootView: root)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { store.cancelRefresh(); window.contentView = nil; window.close() }
+        window.appearance = NSAppearance(named: .darkAqua)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertGreaterThan(host.bounds.height, 700)
+        XCTAssertLessThanOrEqual(host.fittingSize.height, 721)
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appending(path: ".build/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: directory.appending(path: "calendar-podium-dark.png"))
     }
 
     private func fixture(_ parser: ISO8601DateFormatter) throws -> SeasonSnapshot {
