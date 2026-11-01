@@ -94,6 +94,7 @@ struct CalendarView: View {
             Text(Presentation.date(weekend.grandPrix?.start ?? weekend.firstStart, format: "dd", zone: preferences.timeZone))
                 .font(.system(size: 20, weight: .medium)).monospacedDigit().frame(width: 31)
             Text(SeasonWinPresentation.flag(country: weekend.country)).font(.title2).accessibilityHidden(true)
+            CircuitThumbnail(weekend: weekend).frame(width: 52, height: 36)
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 5) {
                     Text(weekend.name.replacingOccurrences(of: " Grand Prix", with: "")).fontWeight(.medium)
@@ -129,9 +130,10 @@ struct WeekendDetailView: View {
     var liveSnapshot: LiveTimingSnapshot? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Image(systemName: "flag.checkered").font(.system(size: 22)).padding(12)
+            CircuitThumbnail(weekend: weekend)
+                .frame(maxWidth: .infinity).frame(height: 112)
+                .padding(8)
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
-                .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 7) {
                 if ongoing { OngoingWeekendBadge() } else { StatusBadge(status: status) }
                 Text(weekend.name).font(.system(size: 21, weight: .semibold)).tracking(-0.4)
