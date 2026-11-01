@@ -43,7 +43,7 @@ enum Presentation {
         case .raced: "Raced"
         case .current: "Current weekend"
         case .next: "Next"
-        case .future: "Future"
+        case .future: "Upcoming"
         case .resultsPending: "Results pending"
         case .cancelled: "Cancelled"
         case .unavailable: "Schedule changed"

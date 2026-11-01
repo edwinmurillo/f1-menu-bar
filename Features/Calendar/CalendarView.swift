@@ -103,11 +103,13 @@ struct CalendarView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 6)
-            if weekend.winner != nil || weekend.podium?.isEmpty == false {
-                CalendarPodium(weekend: weekend, compact: true)
-            } else if store.policy.isOngoing(weekend, now: store.now, timeZone: preferences.timeZone) {
-                OngoingWeekendBadge()
-            } else { StatusBadge(status: status) }
+            Group {
+                if weekend.winner != nil || weekend.podium?.isEmpty == false {
+                    CalendarPodium(weekend: weekend, compact: true)
+                } else if store.policy.isOngoing(weekend, now: store.now, timeZone: preferences.timeZone) {
+                    OngoingWeekendBadge()
+                } else { StatusBadge(status: status) }
+            }.frame(width: 130, alignment: .leading)
         }
         .padding(.vertical, 13).padding(.horizontal, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
