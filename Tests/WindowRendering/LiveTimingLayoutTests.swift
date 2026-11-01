@@ -6,6 +6,49 @@ import XCTest
 /// Exercise the real SwiftUI/AppKit layout in an offscreen window. No app launch,
 /// UI automation, live network, or screenshots are needed to catch this regression.
 @MainActor final class LiveTimingLayoutTests: XCTestCase {
+    func testProjectedPointsRespectSessionPositionAndRetirement() {
+        XCTAssertEqual((1...11).map { LiveProjectedPoints.points(position: $0, session: "Race", retired: false) },
+            [25, 18, 15, 12, 10, 8, 6, 4, 2, 1, 0])
+        XCTAssertEqual((1...9).map { LiveProjectedPoints.points(position: $0, session: "Sprint", retired: false) },
+            [8, 7, 6, 5, 4, 3, 2, 1, 0])
+        XCTAssertNil(LiveProjectedPoints.points(position: 1, session: "Qualifying", retired: false))
+        XCTAssertNil(LiveProjectedPoints.points(position: 1, session: "Sprint Qualifying", retired: false))
+        XCTAssertNil(LiveProjectedPoints.points(position: 1, session: "Race", retired: true))
+        XCTAssertNil(LiveProjectedPoints.points(position: nil, session: "Race", retired: false))
+        XCTAssertNil(LiveProjectedPoints.points(position: 0, session: "Race", retired: false))
+    }
+
+    func testFastestLapUsesWholeFieldAndPreservesTiesAndMissingValues() throws {
+        let drivers = fixture().drivers
+        XCTAssertEqual(LiveFastestLap.driverIDs(in: drivers), ["2"])
+        let filtered = LiveTimingFilter(driverID: "1").apply(to: drivers)
+        XCTAssertFalse(LiveFastestLap.driverIDs(in: drivers).contains(try XCTUnwrap(filtered.first).id))
+        XCTAssertEqual(LiveFastestLap.driverIDs(in: [drivers[0], drivers[2]]), ["1", "3"])
+        XCTAssertTrue(LiveFastestLap.driverIDs(in: []).isEmpty)
+        let missing = LiveDriverTiming(id: "missing", position: nil, name: "Unknown", abbreviation: "UNK",
+            team: "", teamColor: nil, gap: nil, interval: nil, laps: nil, lastLap: nil, bestLap: nil,
+            sectors: [], stops: nil, inPit: false, retired: false, knockedOut: false, stints: [])
+        XCTAssertTrue(LiveFastestLap.driverIDs(in: [missing]).isEmpty)
+    }
+
+    func testReplayStaysPinnedAcrossUpdatesAndGoLiveFollowsLatestLap() {
+        var playback = LiveLapPlayback()
+        XCTAssertEqual(playback.displayedLap(latest: 12), 12)
+        playback.select(7, available: [3, 6, 9, 12])
+        XCTAssertEqual(playback.lap, 6, "Missing laps must snap to an observed lap")
+        XCTAssertEqual(playback.displayedLap(latest: 13), 6, "New timing must not interrupt replay")
+        playback.goLive()
+        XCTAssertEqual(playback.displayedLap(latest: 13), 13)
+        XCTAssertEqual(playback.displayedLap(latest: 14), 14)
+        playback.select(1, available: [])
+        XCTAssertNil(playback.lap)
+    }
+
+    func testLiveTimingLeadsSidebarAndTimelineIsMerged() {
+        XCTAssertEqual(AppSection.allCases.first, .live)
+        XCTAssertFalse(AppSection.allCases.map(\.rawValue).contains("timeline"))
+    }
+
     func testFirstTimingSnapshotDoesNotMoveTheSplitViewOutsideTheWindow() async throws {
         let harness = Harness()
         addTeardownBlock { await harness.finish() }
@@ -23,7 +66,7 @@ import XCTest
         harness.coordinator.section = .live
         await harness.load(snapshot: fixture())
         try harness.assertContentFits()
-        for section in [AppSection.drivers, .constructors, .calendar, .live, .timeline] {
+        for section in [AppSection.drivers, .constructors, .calendar, .live] {
             harness.coordinator.section = section
             try harness.assertContentFits()
         }
@@ -52,21 +95,27 @@ import XCTest
         let feed = LayoutFeed()
         let store = LiveTimingStore(feed: feed)
         store.start(); await feed.waitForConnection()
+        var earlier = fixture(stintCount: 8)
+        earlier.currentLap = 31
+        await feed.send(LiveTimingState(phase: .connected, snapshot: earlier))
         await feed.send(LiveTimingState(phase: .reconnecting, snapshot: fixture(stintCount: 8),
             message: String(repeating: "Connection interrupted; waiting to reconnect. ", count: 12)))
+        XCTAssertEqual(store.lapSnapshots.count, 2)
         let preferences = AppPreferences(defaults: UserDefaults(suiteName: "LiveScroll-\(UUID().uuidString)")!)
         let host = NSHostingView(rootView: LiveTimingView(store: store, preferences: preferences))
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.contentView = host
-        for appearance in [NSAppearance.Name.aqua, .darkAqua] {
+        for (appearance, width) in [(NSAppearance.Name.aqua, 835), (.darkAqua, 1400)] {
+            window.setContentSize(NSSize(width: width, height: 720))
             window.appearance = NSAppearance(named: appearance)
             host.layoutSubtreeIfNeeded()
             let scrolls = scrollViews(host)
             XCTAssertEqual(scrolls.count, 1, "Timing rows, errors, race control and tyre previews must share the page scroll")
             let scroll = try XCTUnwrap(scrolls.first)
             let document = try XCTUnwrap(scroll.documentView)
-            XCTAssertGreaterThan(document.frame.height, 22 * 90 + 40 * 20, "All drivers and retained race-control messages must expand")
+            XCTAssertGreaterThan(document.frame.height, 22 * 64, "Timing and race-control rows must remain expanded")
             XCTAssertLessThanOrEqual(host.fittingSize.height, host.bounds.height + 1)
+            XCTAssertLessThanOrEqual(document.frame.width, scroll.contentView.bounds.width + 1, "The tyre column must fit without horizontal scrolling")
             try capture(host, name: appearance == .aqua ? "live-expanded-light" : "live-expanded-dark")
             scroll.contentView.scroll(to: NSPoint(x: 0, y: max(0, document.frame.height - scroll.contentView.bounds.height)))
             scroll.reflectScrolledClipView(scroll.contentView); host.layoutSubtreeIfNeeded()
@@ -106,6 +155,41 @@ import XCTest
         try capture(host, name: "live-tyre-history-modal")
     }
 
+    func testFourStintPreviewFitsOneLineWithoutHorizontalScrolling() throws {
+        _ = NSApplication.shared
+        let segments = [
+            TyreHistorySegment(compound: "SOFT", completedLaps: 1),
+            TyreHistorySegment(compound: "MEDIUM", completedLaps: 106),
+            TyreHistorySegment(compound: "HARD", completedLaps: 999),
+            TyreHistorySegment(compound: "INTERMEDIATE", completedLaps: nil)
+        ]
+        let host = NSHostingView(rootView: TyreHistorySummary(segments: segments, driverName: "Fixture driver"))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 80), styleMask: [], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { window.contentView = nil; window.close() }
+        host.layoutSubtreeIfNeeded()
+        XCTAssertLessThanOrEqual(host.fittingSize.height, 20, "All four stints must stay on the same line")
+        XCTAssertLessThanOrEqual(host.fittingSize.width, 320, "Long lap counts must fit in the tyre-history column")
+        XCTAssertTrue(scrollViews(host).isEmpty)
+    }
+
+    func testTyrePreviewRevealsMoreStintsOnResizeAndHidesMoreWhenAllFit() throws {
+        _ = NSApplication.shared
+        let driver = try XCTUnwrap(fixture(stintCount: 8).drivers.first)
+        let host = NSHostingView(rootView: TyreHistorySummary(segments: driver.tyreHistory, driverName: driver.name, stints: driver.stints)
+            .background(Color(nsColor: .windowBackgroundColor)))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 240, height: 70), styleMask: [], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { window.contentView = nil; window.close() }
+        for width in [240, 400, 800, 240] {
+            window.setContentSize(NSSize(width: width, height: 70))
+            host.layoutSubtreeIfNeeded()
+            XCTAssertEqual(host.bounds.width, CGFloat(width), accuracy: 1)
+            XCTAssertTrue(scrollViews(host).isEmpty)
+            try capture(host, name: "tyre-preview-\(width)")
+        }
+    }
+
     private func scrollViews(_ view: NSView) -> [NSScrollView] {
         (view as? NSScrollView).map { [$0] } ?? view.subviews.flatMap { scrollViews($0) }
     }
@@ -124,14 +208,15 @@ import XCTest
         value.meetingName = "Fixture Grand Prix"
         value.sessionName = "Race"
         value.sessionStatus = "Started"
+        value.trackStatus = "All Clear"
         value.currentLap = 32; value.totalLaps = 56
         value.airTemperature = "24"; value.trackTemperature = "36"
         value.drivers = (1...22).map { number in
             LiveDriverTiming(id: String(number), position: number, name: "Fixture Driver \(number)",
                 abbreviation: "F\(number)", team: number.isMultiple(of: 2) ? "Team B" : "Team A", teamColor: "FF8000", gap: "+4.123", interval: "+1.234",
-                laps: 32, lastLap: "1:21.123", bestLap: "1:20.987", sectors: ["25.1", "30.2", "26.3"],
-                stops: 1, inPit: false, retired: false, knockedOut: false,
-                stints: (0..<stintCount).map { LiveTyreStint(id: $0, compound: $0.isMultiple(of: 2) ? "MEDIUM" : "SOFT", tyreAge: 12, initialAge: 0, isNew: true) })
+                laps: 32, lastLap: "1:21.123", bestLap: number == 2 ? "1:20.987" : "1:21.100", sectors: ["25.1", "30.2", "26.3"],
+                stops: 1, inPit: false, retired: number == 4, knockedOut: false,
+                stints: (0..<stintCount).map { LiveTyreStint(id: $0, compound: $0.isMultiple(of: 2) ? "MEDIUM" : "SOFT", tyreAge: $0.isMultiple(of: 3) ? 1 : $0.isMultiple(of: 2) ? 6 : 12, initialAge: 0, isNew: true) })
         }
         value.messages = (1...40).map { LiveRaceMessage(id: String($0), date: nil,
             message: "Fixture race control message \($0) with additional details that can wrap across lines.") }
@@ -176,6 +261,8 @@ import XCTest
         XCTAssertGreaterThanOrEqual(frame.minY, host.bounds.minY - 1, file: file, line: line)
         XCTAssertLessThanOrEqual(frame.maxY, host.bounds.maxY + 1, file: file, line: line)
         XCTAssertLessThanOrEqual(host.fittingSize.height, host.bounds.height + 1, file: file, line: line)
+        XCTAssertGreaterThanOrEqual(frame.minX, host.bounds.minX - 1, file: file, line: line)
+        XCTAssertLessThanOrEqual(frame.maxX, host.bounds.maxX + 1, file: file, line: line)
     }
 
     func capture(name: String) throws {

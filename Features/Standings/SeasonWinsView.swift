@@ -6,6 +6,8 @@ struct SeasonWinsView: View {
     let drivers: Bool
     let qualifyingAvailable: Bool
     let racesAvailable: Bool
+    var driverName = ""
+    var showAll: (() -> Void)?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -18,6 +20,37 @@ struct SeasonWinsView: View {
             if victories.isEmpty {
                 Text(racesAvailable && (!drivers || qualifyingAvailable) ? "No wins yet" : "Results pending")
                     .font(.caption).foregroundStyle(.secondary)
+            } else if drivers {
+                AdaptiveInlinePreview(count: victories.count) { visible, compact in
+                    VStack(alignment: .leading, spacing: 5) {
+                        HStack(spacing: 6) {
+                            ForEach(SeasonWinPresentation.newestFirst(victories).prefix(visible)) { victory in
+                                Button { showAll?() } label: {
+                                    HStack(spacing: 4) {
+                                        Text(SeasonWinPresentation.kind(victory)).fixedSize()
+                                        Text(SeasonWinPresentation.event(victory)).lineLimit(1).truncationMode(.middle)
+                                        Text(SeasonWinPresentation.flag(country: victory.weekend.country)).fixedSize()
+                                    }.font(.caption)
+                                        .padding(.horizontal, 7).padding(.vertical, 5)
+                                        .frame(maxWidth: compact ? .infinity : nil)
+                                        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 6))
+                                        .contentShape(Rectangle())
+                                }.buttonStyle(.plain)
+                                    .help(SeasonWinPresentation.label(victory) + " · " + victory.weekend.country + " · Click for details")
+                                    .accessibilityLabel(SeasonWinPresentation.label(victory) + ", " + victory.weekend.country + ", show details")
+                            }
+                        }
+                        if visible < victories.count {
+                            HStack(spacing: 10) {
+                                Text("Latest \(visible) of \(victories.count) weekends").foregroundStyle(.secondary)
+                                if let showAll {
+                                    Button("Show more", action: showAll)
+                                        .accessibilityLabel("Show all season wins and details for \(driverName)")
+                                }
+                            }.font(.caption).padding(.top, 3)
+                        }
+                    }
+                }
             } else {
                 ScrollView(.horizontal) {
                     HStack(spacing: drivers ? 8 : 6) {
@@ -42,10 +75,28 @@ struct SeasonWinsView: View {
 }
 
 enum SeasonWinPresentation {
+    static func newestFirst(_ victories: [WeekendVictory]) -> [WeekendVictory] {
+        victories.sorted {
+            // Undated results remain visible, but do not displace known recent wins.
+            ($0.weekend.grandPrix?.start ?? $0.weekend.firstStart ?? .distantPast, $0.id) >
+            ($1.weekend.grandPrix?.start ?? $1.weekend.firstStart ?? .distantPast, $1.id)
+        }
+    }
+
+    static func recent(_ victories: [WeekendVictory]) -> [WeekendVictory] {
+        Array(newestFirst(victories).prefix(3))
+    }
+
     static func label(_ victory: WeekendVictory) -> String {
-        let kind = victory.qualifying && victory.grandPrix ? "Quali & GP" : victory.qualifying ? "Quali" : "GP"
-        let event = victory.weekend.name.replacingOccurrences(of: " Grand Prix", with: "", options: .caseInsensitive)
-        return "\(kind) – \(event)"
+        "\(kind(victory)) – \(event(victory))"
+    }
+
+    static func kind(_ victory: WeekendVictory) -> String {
+        victory.qualifying && victory.grandPrix ? "Quali & GP" : victory.qualifying ? "Quali" : "GP"
+    }
+
+    static func event(_ victory: WeekendVictory) -> String {
+        victory.weekend.name.replacingOccurrences(of: " Grand Prix", with: "", options: .caseInsensitive)
     }
 
     static func flag(country: String) -> String {

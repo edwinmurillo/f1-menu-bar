@@ -48,13 +48,17 @@ struct LiveTimingConnectionHeader: View {
                         Text(state.snapshot.totalLaps.map { "Lap \(lap) / \($0)" } ?? "Lap \(lap)")
                             .monospacedDigit()
                     }
-                    if let track = state.snapshot.trackStatus { Text(track).foregroundStyle(.secondary) }
+                    if let track = state.snapshot.trackStatus {
+                        Label(track, systemImage: "flag.fill")
+                            .foregroundStyle(track.localizedCaseInsensitiveContains("clear") ? Color.blue :
+                                track.localizedCaseInsensitiveContains("red") ? Color.red : Color.yellow)
+                    }
                     Spacer()
                     if let date = state.snapshot.receivedAt {
-                        Text("Received \(Presentation.date(date, format: "jmmss", zone: preferences.timeZone))")
+                        Text("Received \(Presentation.date(date, format: "jmmss", zone: preferences.timeZone))").font(.caption)
                             .foregroundStyle(.secondary).monospacedDigit()
                     }
-                }.font(.caption)
+                }.font(.title3.weight(.semibold))
             }
             LiveSessionClockView(store: store)
             if let message = store.state.message {

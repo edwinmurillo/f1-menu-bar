@@ -31,7 +31,7 @@ struct F1MenuBarApp: App {
 
     var body: some Scene {
         MenuBarExtra {
-            NextWeekendView(store: store, preferences: preferences, coordinator: coordinator)
+            NextWeekendView(store: store, preferences: preferences, coordinator: coordinator, liveStore: liveStore)
                 .preferredColorScheme(preferences.colorScheme)
         } label: {
             Label(menuBarTitle, systemImage: "flag.checkered")

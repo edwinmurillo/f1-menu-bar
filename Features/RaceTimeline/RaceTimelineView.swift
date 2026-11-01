@@ -7,6 +7,7 @@ struct RaceTimelineView: View {
     @Bindable var coordinator: AppCoordinator
     let preferences: AppPreferences
     var liveStore: LiveTimingStore? = nil
+    var returnToLive: (() -> Void)? = nil
     @State private var selectedLap = 1
     @State private var highlightedDriver: String?
 
@@ -103,8 +104,9 @@ struct RaceTimelineView: View {
     private var header: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top) {
-                SectionHeader(title: "Race timeline", subtitle: "Real lap history · \(String(season.visibleSnapshot.year)) season")
+                SectionHeader(title: "Live timing · Session history", subtitle: "Real lap history · \(String(season.visibleSnapshot.year)) season")
                 Spacer()
+                if let returnToLive { Button("Go Live", action: returnToLive).buttonStyle(.borderedProminent) }
                 Button {
                     if let selected { Task { await historyStore.load(selected, force: true) } }
                 } label: { Label("Refresh", systemImage: "arrow.clockwise") }
@@ -207,6 +209,7 @@ struct RaceHistoryContent: View {
     @Binding var highlightedDriver: String?
     var loadingDetails = false
     var chartHeight: CGFloat = 400
+    @State private var showsChart = false
     @State private var chartTab = RaceHistoryChart.Kind.positions
     @State private var gapWindow = 10
     private var isPracticeTimeline: Bool {
@@ -239,6 +242,8 @@ struct RaceHistoryContent: View {
                 Slider(value: Binding(get: { Double(lap) }, set: { value in
                     selectedLap = history.laps.min { abs(Double($0.number) - value) < abs(Double($1.number) - value) }?.number ?? 1
                 }), in: 1...Double(max(2, history.lastLap)), step: 1)
+                    .tint(Presentation.accent)
+                    .accentColor(Presentation.accent)
                     .disabled(history.laps.count < 2)
                     .accessibilityLabel(isPracticeTimeline ? "Practice best-lap progress" : "Session lap progress")
                     .accessibilityValue(isPracticeTimeline ? "Update \(lap) of \(history.lastLap)" : "Lap \(lap) of \(history.lastLap)")
@@ -249,6 +254,8 @@ struct RaceHistoryContent: View {
                     Text(isPracticeTimeline ? "\(history.lastLap) best-lap updates" : "\(history.lastLap) laps available")
                 }.font(.caption2).foregroundStyle(.secondary).monospacedDigit()
             }
+            DisclosureGroup("Position history", isExpanded: $showsChart) {
+                VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Picker("Chart", selection: $chartTab) {
                     Text("Positions").tag(RaceHistoryChart.Kind.positions)
@@ -282,6 +289,8 @@ struct RaceHistoryContent: View {
                 RaceHistoryChart(history: history, selectedLap: lap, highlightedDriver: highlightedDriver,
                     kind: chartTab, gapWindow: gapWindow, selectLap: { selectedLap = $0 })
                     .frame(height: chartHeight)
+            }
+                }
             }
             RaceHistoryTimingTable(history: history, lap: lap, highlightedDriver: $highlightedDriver)
             raceControl

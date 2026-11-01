@@ -4,6 +4,11 @@ public enum WeekendStatus: Equatable, Sendable {
     case raced, current, next, future, resultsPending, cancelled, unavailable
 }
 
+/// Timetable estimates are distinct from published results and live timing.
+public enum SessionScheduleStatus: Equatable, Sendable {
+    case next, scheduledInProgress, scheduledFinished, startPassed, finished, resultsPending
+}
+
 public struct SchedulePolicy: Sendable {
     public let resultFocusInterval: TimeInterval
     public init(resultFocusInterval: TimeInterval = 6 * 60 * 60) {
@@ -23,6 +28,35 @@ public struct SchedulePolicy: Sendable {
     public func nextSession(in weekend: RaceWeekend, now: Date) -> RaceSession? {
         weekend.activeSessions.filter { ($0.start ?? .distantPast) > now }
             .min { ($0.start ?? .distantFuture) < ($1.start ?? .distantFuture) }
+    }
+
+    public func sessionStatus(_ session: RaceSession, in weekend: RaceWeekend, now: Date, timeZone: TimeZone) -> SessionScheduleStatus? {
+        guard isWithinWeekendDates(weekend, now: now, timeZone: timeZone), !session.isCancelled else { return nil }
+        if session.isGrandPrix && weekend.winner != nil || session.isQualifying && weekend.qualifyingWinner != nil {
+            return .finished
+        }
+        guard let start = session.start else { return nil }
+        if start > now {
+            return nextSession(in: weekend, now: now)?.id == session.id ? .next : nil
+        }
+        // Only use a valid, supplied end time; never manufacture a session duration.
+        if let end = session.end, end > start {
+            if now < end { return .scheduledInProgress }
+            return session.isGrandPrix ? .resultsPending : .scheduledFinished
+        }
+        // Without a supplied end, completion is unknown. Keep the started
+        // timetable state distinct from a known end awaiting published results.
+        if session.isGrandPrix { return .startPassed }
+        // The backup calendar has no end times. Earlier days and sessions followed
+        // by another scheduled start can be marked as past timetable entries only.
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = timeZone
+        let isEarlierDay = start < calendar.startOfDay(for: now)
+        let laterSessionStarted = weekend.activeSessions.contains {
+            guard let later = $0.start else { return false }
+            return later > start && later <= now
+        }
+        return isEarlierDay || laterSessionStarted ? .scheduledFinished : .startPassed
     }
 
     /// An ongoing weekend is a date-range state, not evidence of a live session.

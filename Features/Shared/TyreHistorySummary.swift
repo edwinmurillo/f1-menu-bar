@@ -8,14 +8,20 @@ struct TyreHistorySummary: View {
     @State private var showsAll = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            TyreHistoryLabel(segments: Array(segments.suffix(4)))
-            if segments.count > 4 {
-                HStack(spacing: 10) {
-                    Text("Latest 4 of \(segments.count)").foregroundStyle(.secondary)
-                    Button("See more") { showsAll = true }
-                        .accessibilityLabel("See all \(segments.count) tyre stints for \(driverName)")
-                }.font(.caption)
+        AdaptiveInlinePreview(count: segments.count) { visible, _ in
+            VStack(alignment: .leading, spacing: 6) {
+                Button { showsAll = true } label: {
+                    TyreHistoryLabel(segments: Array(segments.suffix(visible)))
+                        .fixedSize(horizontal: true, vertical: true)
+                }.buttonStyle(.plain).disabled(segments.isEmpty)
+                    .help("Show tyre stint details for \(driverName)")
+                if visible < segments.count {
+                    HStack(spacing: 10) {
+                        Text("Latest \(visible) of \(segments.count)").foregroundStyle(.secondary)
+                        Button("See more") { showsAll = true }
+                            .accessibilityLabel("See all \(segments.count) tyre stints for \(driverName)")
+                    }.font(.caption)
+                }
             }
         }
         .sheet(isPresented: $showsAll) {
@@ -55,7 +61,7 @@ struct TyreHistorySheet: View {
                                 }
                             }
                             Spacer()
-                            Text(segments[index].completedLaps.map { "Laps \($0)" } ?? (index == segments.count - 1 ? "Current" : "Lap count unknown"))
+                            Text(segments[index].completedLaps.map { "\($0) \($0 == 1 ? "Lap" : "Laps")" } ?? (index == segments.count - 1 ? "Current" : "Lap count unknown"))
                                 .monospacedDigit()
                         }.padding(.vertical, 12)
                         Divider()

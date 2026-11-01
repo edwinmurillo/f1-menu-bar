@@ -126,11 +126,11 @@ struct TyreHistoryLabel: View {
                         HStack(spacing: 4) {
                             TyreHistoryBadge(compound: segments[index].compound)
                             if let laps = segments[index].completedLaps {
-                                Text("Laps \(laps)").monospacedDigit()
+                                Text("\(laps) \(laps == 1 ? "Lap" : "Laps")").monospacedDigit()
                             } else if index == segments.count - 1 {
                                 Text("Current").foregroundStyle(.secondary)
                             } else {
-                                Text("Laps —").foregroundStyle(.secondary)
+                                Text("— Laps").foregroundStyle(.secondary)
                             }
                             if index < segments.count - 1 {
                                 Text("–").foregroundStyle(.secondary)
@@ -140,7 +140,7 @@ struct TyreHistoryLabel: View {
                     }
                 }
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Tyre history: \(segments.map { "\(TyreHistoryBadge.letter($0.compound))" + ($0.completedLaps.map { " \($0) laps" } ?? "") }.joined(separator: ", "))")
+                .accessibilityLabel("Tyre history: \(segments.map { "\(TyreHistoryBadge.letter($0.compound))" + ($0.completedLaps.map { " \($0) \($0 == 1 ? "lap" : "laps")" } ?? "") }.joined(separator: ", "))")
             } else {
                 Text("—").font(.caption2).accessibilityLabel("Tyre history unavailable")
             }
@@ -227,6 +227,8 @@ struct SessionScheduleView: View {
     let now: Date
     let zone: TimeZone
     var compact = false
+    var showsSessionStatus = false
+    var liveSnapshot: LiveTimingSnapshot? = nil
 
     private var days: [(String, [RaceSession])] {
         var groups: [(String, [RaceSession])] = []
@@ -237,6 +239,17 @@ struct SessionScheduleView: View {
         }
         return groups
     }
+    func isLive(_ session: RaceSession) -> Bool {
+        guard !session.isCancelled, !weekend.isCancelled,
+              !(session.isGrandPrix && weekend.winner != nil),
+              !(session.isQualifying && weekend.qualifyingWinner != nil),
+              let snapshot = liveSnapshot, snapshot.hasFreshTiming(at: now),
+              snapshot.meetingName?.caseInsensitiveCompare(weekend.name) == .orderedSame,
+              snapshot.sessionName?.caseInsensitiveCompare(session.name) == .orderedSame,
+              let start = session.start else { return false }
+        return now >= start.addingTimeInterval(-6 * 3600) && now <= start.addingTimeInterval(24 * 3600)
+    }
+
     var body: some View {
         let nextID = SchedulePolicy().nextSession(in: weekend, now: now)?.id
         VStack(alignment: .leading, spacing: compact ? 12 : 18) {
@@ -254,6 +267,9 @@ struct SessionScheduleView: View {
                             Text(Presentation.session(session.name))
                                 .fontWeight(session.isGrandPrix ? .semibold : .regular)
                             Spacer(minLength: 8)
+                            if showsSessionStatus, let status = SchedulePolicy().sessionStatus(session, in: weekend, now: now, timeZone: zone) {
+                                SessionStatusBadge(status: status, live: isLive(session), isGrandPrix: session.isGrandPrix)
+                            }
                             Text(session.isCancelled ? "Cancelled" : Presentation.date(session.start, format: "jmm", zone: zone))
                                 .monospacedDigit().fontWeight(.medium)
                         }
@@ -264,6 +280,48 @@ struct SessionScheduleView: View {
                     }
                 }
             }
+            if showsSessionStatus, weekend.sessions.contains(where: {
+                guard let status = SchedulePolicy().sessionStatus($0, in: weekend, now: now, timeZone: zone) else { return false }
+                return status == .scheduledInProgress || status == .scheduledFinished || status == .startPassed
+            }) {
+                Text("* Based on the timetable. Delays may affect status.")
+                    .font(.caption2).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
+    }
+}
+
+private struct SessionStatusBadge: View {
+    let status: SessionScheduleStatus
+    var live = false
+    var isGrandPrix = false
+
+    private var title: String {
+        if live { return "Ongoing" }
+        return switch status {
+        case .next: "Next"
+        case .scheduledInProgress: "Ongoing*"
+        case .scheduledFinished: "Finished*"
+        case .startPassed: isGrandPrix ? "Ongoing*" : "Started*"
+        case .finished: "Finished"
+        case .resultsPending: "Results pending"
+        }
+    }
+    private var color: Color {
+        if live { return .green }
+        return switch status {
+        case .next: Presentation.accent
+        case .scheduledInProgress: .green
+        case .startPassed: isGrandPrix ? .green : .orange
+        case .finished, .scheduledFinished: .secondary
+        case .resultsPending: .secondary
+        }
+    }
+    var body: some View {
+        Text(title).font(.system(size: 10, weight: .medium))
+            .fixedSize().padding(.horizontal, 6).padding(.vertical, 3)
+            .foregroundStyle(color).background(color.opacity(0.1), in: Capsule())
+            .accessibilityLabel(title.replacingOccurrences(of: "*", with: ", based on timetable"))
     }
 }

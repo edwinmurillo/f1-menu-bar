@@ -4,12 +4,11 @@ import Observation
 import SwiftUI
 
 enum AppSection: String, CaseIterable, Identifiable {
-    case calendar, drivers, constructors, live, timeline, settings
+    case live, calendar, drivers, constructors, settings
     var id: String { rawValue }
     var title: String {
         switch self {
         case .live: "Live timing"
-        case .timeline: "Race timeline"
         default: rawValue.capitalized
         }
     }
@@ -19,7 +18,6 @@ enum AppSection: String, CaseIterable, Identifiable {
         case .drivers: "person.crop.circle"
         case .constructors: "flag.checkered"
         case .live: "dot.radiowaves.left.and.right"
-        case .timeline: "chart.xyaxis.line"
         case .settings: "slider.horizontal.3"
         }
     }
@@ -34,7 +32,7 @@ final class AppCoordinator {
     func showTimeline(_ weekend: RaceWeekend, provider: DataProvider, at now: Date = Date()) {
         guard weekend.hasStartedTimelineSession(at: now) else { return }
         timelineRequest = RaceHistoryRequest(weekend: weekend, provider: provider)
-        section = .timeline
+        section = .live
         navigationRevision += 1
     }
     var navigationRevision = 0

@@ -8,7 +8,7 @@ import XCTest
         let coordinator = AppCoordinator()
         let request = fixtureRequest()
         coordinator.showTimeline(request.weekend, provider: request.calendarProvider, at: Date(timeIntervalSince1970: 1_780_000_000))
-        XCTAssertEqual(coordinator.section, .timeline)
+        XCTAssertEqual(coordinator.section, .live)
         XCTAssertEqual(coordinator.timelineRequest, request)
         XCTAssertEqual(coordinator.navigationRevision, 1)
     }

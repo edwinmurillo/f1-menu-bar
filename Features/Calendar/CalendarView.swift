@@ -56,7 +56,7 @@ struct CalendarView: View {
                         if let selected {
                             VStack(alignment: .leading, spacing: 16) {
                                 Button { coordinator.showTimeline(selected, provider: snapshot.provider, at: store.now) } label: {
-                                    Label("View race timeline", systemImage: "chart.xyaxis.line")
+                                    Label("View lap history", systemImage: "chart.xyaxis.line")
                                 }.buttonStyle(.borderedProminent)
                                     .disabled(!selected.hasStartedTimelineSession(at: store.now))
                                     .help("Open available session history")

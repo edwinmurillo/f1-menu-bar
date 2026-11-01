@@ -5,6 +5,7 @@ struct NextWeekendView: View {
     let store: SeasonStore
     let preferences: AppPreferences
     let coordinator: AppCoordinator
+    var liveStore: LiveTimingStore? = nil
     @Environment(\.openWindow) private var openWindow
 
     var body: some View {
@@ -68,7 +69,7 @@ struct NextWeekendView: View {
         .frame(width: 386)
         .fixedSize(horizontal: false, vertical: true)
         .background(Color(nsColor: .windowBackgroundColor))
-        .tint(Presentation.accent)
+        .tint(Color.primary)
         .onAppear { Task { await store.tick() } }
     }
 
@@ -93,24 +94,31 @@ struct NextWeekendView: View {
                 Label(Presentation.weekendDates(weekend, zone: preferences.timeZone), systemImage: "calendar")
                     .font(.callout)
             }
-            TimelineView(.periodic(from: .now, by: 60)) { context in
-                if let next = store.policy.nextSession(in: weekend, now: context.date), let start = next.start {
+            Group {
+                if let next = store.policy.nextSession(in: weekend, now: store.now), let start = next.start {
                     HStack {
                         VStack(alignment: .leading, spacing: 3) {
                             Text("NEXT SESSION").font(.system(size: 11)).foregroundStyle(.secondary)
                             Text(Presentation.session(next.name)).font(.callout.weight(.semibold))
                         }
                         Spacer()
-                        Text(Presentation.countdown(until: start, now: context.date))
+                        Text(Presentation.countdown(until: start, now: store.now))
                             .font(.system(size: 24, weight: .semibold, design: .rounded)).monospacedDigit()
                     }.padding(14).background(Presentation.accent.opacity(0.09), in: RoundedRectangle(cornerRadius: 10))
-                } else if let start = weekend.grandPrix?.start, start <= context.date {
+                } else if let start = weekend.grandPrix?.start, start <= store.now {
                     IssueBanner(message: "Race scheduled to have started · results pending")
                 } else {
                     IssueBanner(message: "Session times have not been announced yet.")
                 }
             }
-            SessionScheduleView(weekend: weekend, now: store.now, zone: preferences.timeZone)
+            if let liveStore {
+                TimelineView(.periodic(from: .now, by: 1)) { clock in
+                    SessionScheduleView(weekend: weekend, now: clock.date, zone: preferences.timeZone,
+                        showsSessionStatus: true, liveSnapshot: liveStore.state.snapshot)
+                }
+            } else {
+                SessionScheduleView(weekend: weekend, now: store.now, zone: preferences.timeZone, showsSessionStatus: true)
+            }
         }.padding(22)
     }
 }

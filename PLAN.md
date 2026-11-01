@@ -18,7 +18,7 @@ The initial scope is the current championship season, with automatic handling of
 | Previous races | Completed GP rows show the winning driver and constructor. A race awaiting published results displays that state instead of an invented winner. |
 | Drivers | Table with championship position, driver, constructor(s), points, and season qualifying/GP win counts. Event badges combine **Quali & GP** when both were won, with country flags. |
 | Constructors | Table with championship position, constructor, points, GP win count, and flags for races won by either driver. Hover a flag for the event name. |
-| Race timeline | Calendar deep link and GP picker; real historical laps, positions and available timing details; full-width GP lap progress with Previous/Next controls; one page scroll and complete timing rows. No simulation. |
+| Session history in Live timing | Calendar deep link and GP picker; real historical laps, positions and available timing details; full-width GP lap progress with Previous/Next controls; one page scroll and complete timing rows. No simulation. |
 | Live timing | Optional personal connection to F1’s current session feed: positions, gaps, laps, tyres, pit counts, selected-driver details, race control, and weather. |
 | Settings | Launch at login, optional menu bar countdown, system-timezone or UTC display, and data-source information. |
 
@@ -62,7 +62,7 @@ A later live-session request on 25 October returned HTTP 401 with an explicit gl
 Arturo authorized trying F1’s anonymous live feed locally for personal use after discussing its access and usage risks. Use the direct SignalR Core/WebSocket endpoint as an optional, experimental feature, separate from calendar, winners, and championship snapshots. This is not a supported public developer API or a promise of continued access.
 
 - Show the feed’s actual meeting, session, status, positions, gaps, lap counts/times, sectors, tyre compound/age, observed stint history, pit counts, recent race-control messages, track status, and weather when supplied.
-- Connect while Live timing or Race timeline is visible. Historical Race timeline requests retain an independent cache owner. Stop on close, hiding, leaving both timing sections, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
+- Connect while Live timing is visible, including its session history browser. Historical requests retain an independent cache owner. Stop on close, hiding, leaving Live timing, sleep, or explicit Disconnect; preserve a manual pause until Connect is chosen.
 - Merge sparse topic updates into the subscription snapshot. Reset on a new session or subscription, reject obsolete connections and older topic updates, and bound memory and publication frequency.
 - Show **Live** only for a Started session with a recent timestamped timing update. A subscription snapshot, ping, scheduled timestamp, or last-known position does not establish liveness. Keep finished and stale data explicit.
 - Use no account credentials, paid topics, backend, or telemetry sharing. Store bounded observed lap snapshots locally as requested. Respect access denials and Retry-After, with bounded reconnects and manual retry.
@@ -215,3 +215,27 @@ Retain completed GP histories across launches without hourly re-downloads; keep 
 Use one page scroll for the complete live timing screen, replacing the native Table, capped race-control/error scrolls and horizontal tyre strip with expanded rows. Retain viewport sizing and the split-view first-snapshot regression. Provide driver and team filters with a clear action, preserving source ranks and clearing incompatible choices after team/session/roster changes. Show the latest four tyre stints, explicit laps-on-set labels, and a See more modal containing every stint plus available new/used and fitting-age details. Missing counts stay unknown; current stints have no fabricated final count. Keep the shared connection and archive independent of filtering. Inventory additional useful feed fields in docs/LIVE_DATA_OPTIONS.md; implementing those additions requires separate product work.
 
 Live timing uses its tyre-history summary instead of a separate current tyre/age column; the current compound remains identified by the final stint.
+
+### Current-weekend session badges and live tyre column — 31 October 2026
+
+During the featured GP's dates in the selected timezone, show Finished, Next and In progress badges beside the menu panel's session times. Mark timetable estimates with an asterisk and a visible explanation. Use supplied valid start/end bounds for the scheduled interval. Without an end time, show Started until the next scheduled session begins or the session falls on an earlier local day; never assume a fixed duration. Only published GP or GP qualifying results establish confirmed completion of those sessions. The GP remains Results pending after its scheduled end. Unknown times, cancelled sessions and cancelled/removed weekends cannot gain a running/finished estimate. Countdown and badges use the same lifecycle-owned clock.
+
+Provider fields rechecked against [OpenF1 sessions](https://openf1.org/docs/#sessions) and [Jolpica race fields](https://github.com/jolpica/jolpica-f1/blob/main/docs/endpoints/races.md): OpenF1 supplies start/end times; Jolpica supplies optional session starts. Timetable status remains separate from live connection status, championship data and winners.
+
+Move Live timing's four-stint tyre-history preview into a column immediately to the right of Driver. Keep the full-history modal, wrapping, filters, expanded rows and single page scroll.
+
+Follow-up: Widen the live tyre-history column to keep all four preview stints on one line, redistributing spacing from the numeric columns while preserving the existing window minimum. Keep the preview's count/See more controls below the sequence. In both timing sections and the full-history modal, write completed tyre durations as N Laps, using 1 Lap for a single lap.
+
+### Expanded driver standings and season-win details — 31 October 2026
+
+Replace Driver standings' native Table and horizontal win strips with fully expanded rows in one viewport-sized page scroll. Preserve published ranks, decimal points, full driver/team names and qualifying/GP totals. Show the latest three winning weekends, newest first, retaining one combined Quali & GP pill for a double win. Keep unknown-date wins in the full history without displacing known recent results. Show more opens a bounded native modal with one scroll for all events, dates in the chosen timezone, circuit/location/country, separate qualifying and GP results, and each result's team at that event. Include season totals, championship context, source/update times and partial-result notices. Missing dates/teams remain explicit; sprint results stay excluded. Do not introduce fixture data into release composition.
+
+### Responsive inline histories — 31 October 2026
+
+Replace the fixed preview limits with one-line previews that fit the available width. Reserve readable driver and numeric columns, then let tyre history and season wins take the extra window space. Tyre history always follows Driver and includes at least three latest stints when available, keeping the current stint last. Driver wins show at least three newest winning weekends, expand as more whole pills fit, and move the flag to the end of each pill. Narrow win pills may shorten event names while preserving result type, full hover/accessibility labels and modal details. Show overflow buttons only while items remain hidden; clicking either preview still opens its modal. Both shrinking and widening must recalculate the visible count, without nested scrolling or resetting modal/filter state. These rules supersede the earlier fixed three-/four-item limits.
+
+- Live timing: responsive timing/Race Control columns, hide/show control, unread message badges, and prominent lap/status flags. Preserve one page scroll and stack panels in narrow windows.
+
+- Merge Race timeline into Live timing, first in the sidebar. Include recorded-lap scrubbing, explicit Go Live/follow mode, collapsible position history, and access to historical GP/session selection within the same destination.
+
+- Live Pts* column includes compact padded values and a Simulate sheet for full-field driver/team totals, with explicit baseline context and session double-count protection.
