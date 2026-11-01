@@ -10,7 +10,6 @@ struct LiveTimingView: View {
     @State private var playback = LiveLapPlayback()
     @State private var showsPositions = false
     @State private var simulation: StandingsSimulation?
-    @State private var selectedDriver: String?
     @State private var filter = LiveTimingFilter()
     @State private var showsRaceControl = true
     @State private var seenMessages: Set<String> = []
@@ -81,16 +80,13 @@ struct LiveTimingView: View {
         return nil
     }
     private var drivers: [LiveDriverTiming] { filter.apply(to: snapshot.drivers) }
-    private var selected: LiveDriverTiming? {
-        drivers.first { $0.id == selectedDriver } ?? drivers.first
-    }
 
     var body: some View {
         livePage
             .sheet(item: $simulation) { StandingsSimulationSheet(simulation: $0) }
             .onChange(of: usesLive, initial: true) { _, live in coordinator?.wantsLiveTiming = live }
             .onChange(of: request) { _, _ in
-                playback.goLive(); selectedDriver = nil; filter = LiveTimingFilter(); seenMessages = []
+                playback.goLive(); filter = LiveTimingFilter(); seenMessages = []
                 simulation = nil
             }
             .task(id: historicalRequest) {
@@ -109,7 +105,7 @@ struct LiveTimingView: View {
         }
         .background(Color(nsColor: .windowBackgroundColor))
         .onChange(of: store.state.snapshot.sessionID) { _, _ in
-            if usesLive { selectedDriver = nil; filter = LiveTimingFilter(); seenMessages = []; playback.goLive() }
+            if usesLive { filter = LiveTimingFilter(); seenMessages = []; playback.goLive() }
         }
         .onChange(of: snapshot.drivers.map { $0.id + ":" + $0.team }) { _, _ in
             filter.reconcile(with: snapshot.drivers)
@@ -144,7 +140,7 @@ struct LiveTimingView: View {
             if showsPositions {
                 if let history = positionHistory {
                     RaceHistoryChart(history: history, selectedLap: playback.lap ?? history.lastLap,
-                        highlightedDriver: selectedDriver, kind: .positions, gapWindow: 10,
+                        highlightedDriver: nil, kind: .positions, gapWindow: 10,
                         selectLap: { playback.select(Double($0), available: availableLaps) }).frame(height: 320)
                 } else {
                     Text("Position history will appear as session laps are recorded.").foregroundStyle(.secondary)
@@ -297,9 +293,8 @@ struct LiveTimingView: View {
                         Button("Clear filters") { filter = LiveTimingFilter() }
                     }
                 } else {
-                    LiveTimingRows(drivers: drivers, selectedDriver: selected?.id, select: { selectedDriver = $0 }, availableWidth: timingWidth, fastestDriverIDs: LiveFastestLap.driverIDs(in: snapshot.drivers), sessionName: snapshot.sessionName,
+                    LiveTimingRows(drivers: drivers, availableWidth: timingWidth, fastestDriverIDs: LiveFastestLap.driverIDs(in: snapshot.drivers), sessionName: snapshot.sessionName,
                         simulate: simulationAction, projectedPointsEnabled: canProjectPoints)
-                    if let driver = selected { driverDetail(driver) }
                 }
             }
         }
@@ -363,21 +358,4 @@ struct LiveTimingView: View {
         Link("Official live timing", destination: URL(string: "https://www.formula1.com/en/timing/f1-live")!)
     }
 
-    private func driverDetail(_ driver: LiveDriverTiming) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(driver.name).fontWeight(.semibold)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 135), alignment: .leading)], alignment: .leading, spacing: 10) {
-                Text("Ahead \(driver.interval ?? "—")")
-                Text("Best \(driver.bestLap ?? "—")")
-                ForEach(Array(driver.sectors.enumerated()), id: \.offset) { index, time in
-                    Text("Sector \(index + 1)  \(time)")
-                }
-            }.font(.caption).monospacedDigit()
-            Text("Tyre history").font(.caption).foregroundStyle(.secondary)
-            TyreHistorySummary(segments: driver.tyreHistory, driverName: driver.name, stints: driver.stints)
-            Text("Tyre-history lap counts show laps driven on each set. Pit counts are reported by the feed.")
-                .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(12).background(.quaternary.opacity(0.2), in: RoundedRectangle(cornerRadius: 10))
-    }
 }
