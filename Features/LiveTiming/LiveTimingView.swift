@@ -11,20 +11,16 @@ struct LiveTimingView: View {
     @State private var showsPositions = false
     @State private var simulation: StandingsSimulation?
     @State private var filter = LiveTimingFilter()
-    @State private var showsRaceControl = true
+    @State private var showsRaceControl = false
     @State private var seenMessages: Set<String> = []
     private var request: RaceHistoryRequest? { coordinator?.timelineRequest }
     private var currentRequest: RaceHistoryRequest? {
         guard let season else { return nil }
         let weekends = season.snapshot.weekends
-        guard let weekend = weekends.first(where: { $0.name.caseInsensitiveCompare(store.state.snapshot.meetingName ?? "") == .orderedSame && season.policy.isOngoing($0, now: season.now, timeZone: preferences.timeZone) })
-                ?? season.policy.featured(in: weekends, now: season.now),
-              season.policy.isOngoing(weekend, now: season.now, timeZone: preferences.timeZone) else { return nil }
+        guard let weekend = weekends.first(where: { $0.name.caseInsensitiveCompare(store.state.snapshot.meetingName ?? store.recording?.meetingName ?? "") == .orderedSame })
+                ?? season.policy.featured(in: weekends, now: season.now) else { return nil }
         let started = weekend.activeSessions.filter { $0.start.map { $0 <= season.now } ?? false }.sorted { ($0.start ?? .distantPast) < ($1.start ?? .distantPast) }
         guard let session = started.last else { return nil }
-        if store.state.snapshot.meetingName?.caseInsensitiveCompare(weekend.name) == .orderedSame,
-           store.state.snapshot.sessionName?.caseInsensitiveCompare(session.name) == .orderedSame,
-           store.state.snapshot.hasFinished { return nil }
         return RaceHistoryRequest(weekend: weekend, provider: season.snapshot.provider, sessionID: session.id)
     }
     private var usesLive: Bool { request == nil || TimingHistoryPresentation.matches(request, currentRequest) }
@@ -189,14 +185,15 @@ struct LiveTimingView: View {
             let options = calendar.weekends.filter { $0.hasStartedTimelineSession(at: season.now) }
             let weekend = request?.weekend ?? currentRequest?.weekend
             HStack(spacing: 12) {
-                Picker("Grand Prix", selection: Binding(get: { weekend?.id ?? 0 }, set: { id in
+                Picker("Grand Prix", selection: Binding(get: { usesLive ? 0 : (weekend?.id ?? 0) }, set: { id in
+                    if id == 0 { coordinator.timelineRequest = nil; return }
                     if let picked = options.first(where: { $0.id == id }) {
-                        let latest = picked.activeSessions.filter { $0.start.map { $0 <= season.now } ?? ($0.isGrandPrix && picked.winner != nil) }.last
+                        let latest = picked.activeSessions.filter { $0.start.map { $0 <= season.now } ?? ($0.isGrandPrix && picked.winner != nil) }.sorted { ($0.start ?? .distantPast) < ($1.start ?? .distantPast) }.last
                         coordinator.timelineRequest = RaceHistoryRequest(weekend: picked, provider: calendar.provider, sessionID: latest?.id)
                     }
                 })) {
-                    if weekend == nil { Text("Current session").tag(0) }
-                    ForEach(options) { Text($0.name).tag($0.id) }
+                    Text(currentRequest?.weekend.name ?? store.state.snapshot.meetingName ?? store.recording?.meetingName ?? "Live timing").tag(0)
+                    ForEach(options.filter { !usesLive || $0.id != currentRequest?.weekend.id }) { Text($0.name).tag($0.id) }
                 }.frame(maxWidth: 400)
                 if let weekend {
                     let sessions = weekend.activeSessions.filter { $0.start.map { $0 <= season.now } ?? ($0.isGrandPrix && weekend.winner != nil) }
