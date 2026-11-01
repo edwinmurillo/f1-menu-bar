@@ -31,7 +31,7 @@ public enum ChampionshipClinchPolicy {
     public static func championID(scores: [Score], remainingPoints: Int?) -> String? {
         guard let remainingPoints, remainingPoints >= 0, scores.count >= 2,
               Set(scores.map(\.id)).count == scores.count,
-              scores.allSatisfy({ $0.points.isFinite && $0.points >= 0 }),
+              scores.allSatisfy({ $0.points.isFinite }),
               let leader = scores.max(by: { $0.points < $1.points }) else { return nil }
         return scores.filter { $0.id != leader.id }.allSatisfy { leader.points > $0.points + Double(remainingPoints) } ? leader.id : nil
     }

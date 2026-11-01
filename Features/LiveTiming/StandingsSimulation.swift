@@ -17,6 +17,14 @@ struct StandingsSimulation: Identifiable {
     let teams: [Row]
     let notes: [String]
 
+    private static func teamKey(_ name: String) -> String {
+        var key = name.lowercased().filter { $0.isLetter || $0.isNumber }
+        if key.hasSuffix("f1team") { key = String(key.dropLast(6)) }
+        if key == "racingbulls" { return "rb" }
+        if key == "redbullracing" { return "redbull" }
+        return key
+    }
+
     static func make(season: SeasonSnapshot, timing: LiveTimingSnapshot) -> Self {
         var notes = ["Full-distance projection. Penalties and final classification may change the award. Equal totals retain the published order."]
         let name = timing.sessionName ?? "Unknown session"
@@ -25,6 +33,8 @@ struct StandingsSimulation: Identifiable {
         let eligible = name.lowercased() == "race" || name.lowercased() == "sprint"
         var driverAdds: [String: Int] = [:]
         var teamAdds: [String: Int] = [:]
+        var driverProjectionComplete = true
+        var teamProjectionComplete = true
         if !eligible { notes.append("This session does not award race or sprint points.") }
         func included(_ context: ChampionshipContext?) -> Bool {
             guard let context, let weekend, context.meetingName.caseInsensitiveCompare(weekend.name) == .orderedSame else { return false }
@@ -35,27 +45,42 @@ struct StandingsSimulation: Identifiable {
         if driverIncluded { notes.append("The driver standings already include this session; no points are added again.") }
         if teamIncluded { notes.append("The team standings already include this session; no points are added again.") }
         // The stream has no championship IDs. Join driver numbers only within the
-        // supplied season, then use that provider snapshot's constructor roster.
+        // supplied season. Team projection uses the current live team name and
+        // the selected provider's constructor roster, without mixing provider IDs.
         let yearMatches = timing.receivedAt.map {
             var calendar = Calendar(identifier: .gregorian)
             calendar.timeZone = TimeZone(secondsFromGMT: 0)!
             return calendar.component(.year, from: $0) == season.year
         } ?? false
-        let canProject = eligible && yearMatches && selected != nil
+        let canProject = eligible && yearMatches && selected != nil && !timing.drivers.isEmpty
         if eligible && !canProject { notes.append("The stream could not be matched to this season/session; totals are unchanged.") }
         if canProject {
             for driver in timing.drivers {
+                if !driver.isOutOfRunning && (driver.position == nil || driver.position! <= 0) {
+                    if !driverIncluded { driverProjectionComplete = false }
+                    if !teamIncluded { teamProjectionComplete = false }
+                    notes.append("Position unavailable for \(driver.name); a championship clinch cannot yet be confirmed from this projection.")
+                }
                 guard !driver.isOutOfRunning, let points = LiveProjectedPoints.points(position: driver.position, session: name, retired: driver.retired), points > 0 else { continue }
                 let matches = season.drivers.filter { $0.driverNumber == Int(driver.id) }
-                guard matches.count == 1, let standing = matches.first else {
-                    notes.append("Could not match \(driver.name) to the championship roster; \(points) points are unassigned.")
-                    continue
+                let standing = matches.count == 1 ? matches.first : nil
+                if !driverIncluded {
+                    if let standing { driverAdds[standing.id, default: 0] += points }
+                    else {
+                        driverProjectionComplete = false
+                        notes.append("Could not match \(driver.name) to the championship roster; \(points) driver points are unassigned.")
+                    }
                 }
-                if !driverIncluded { driverAdds[standing.id, default: 0] += points }
-                let teams = season.constructors.filter { $0.name.caseInsensitiveCompare(standing.team) == .orderedSame }
                 if !teamIncluded {
+                    // The live roster identifies the current team after an in-season
+                    // transfer; driver standings can contain multiple historical teams.
+                    let currentTeam = driver.team.isEmpty ? standing?.team ?? "" : driver.team
+                    let teams = season.constructors.filter { teamKey($0.name) == teamKey(currentTeam) }
                     if teams.count == 1, let team = teams.first { teamAdds[team.id, default: 0] += points }
-                    else { notes.append("Could not match \(standing.team) to a constructor; \(points) team points are unassigned.") }
+                    else {
+                        teamProjectionComplete = false
+                        notes.append("Could not match \(currentTeam) to a constructor; \(points) team points are unassigned.")
+                    }
                 }
             }
         }
@@ -69,9 +94,9 @@ struct StandingsSimulation: Identifiable {
         var driverRows = sorted(season.drivers.map { Row(id: $0.id, name: $0.name, current: $0.points, added: driverAdds[$0.id] ?? 0) })
         var teamRows = sorted(season.constructors.map { Row(id: $0.id, name: $0.name, current: $0.points, added: teamAdds[$0.id] ?? 0) })
         let projected = weekend.map { RaceHistoryRequest(weekend: $0, provider: season.provider, sessionID: selected?.id) }
-        let completeProjection = canProject && !notes.contains { $0.contains("unassigned") }
         func champion(_ rows: [Row], context: ChampionshipContext?, teams: Bool) -> String? {
-            guard completeProjection, season.issues[teams ? .constructors : .drivers] == nil else { return nil }
+            guard canProject, teams ? teamProjectionComplete : driverProjectionComplete,
+                  season.issues[teams ? .constructors : .drivers] == nil else { return nil }
             return ChampionshipClinchPolicy.championID(scores: rows.map { .init(id: $0.id, points: $0.total) },
                 remainingPoints: ChampionshipClinchPolicy.remainingPoints(in: season, context: context, constructors: teams, projectedSession: projected))
         }
