@@ -40,6 +40,8 @@ public struct LiveDriverTiming: Codable, Identifiable, Equatable, Sendable {
     public let knockedOut: Bool
     public let stints: [LiveTyreStint]
     public var pitOut: Bool? = nil
+    public var stopped: Bool? = nil
+    public var isOutOfRunning: Bool { retired || (stopped == true && !inPit && pitOut != true) }
     public var currentTyre: LiveTyreStint? { stints.last }
     public var tyreHistory: [TyreHistorySegment] {
         let ordered = stints.sorted { $0.id < $1.id }

@@ -45,7 +45,7 @@ struct StandingsSimulation: Identifiable {
         if eligible && !canProject { notes.append("The stream could not be matched to this season/session; totals are unchanged.") }
         if canProject {
             for driver in timing.drivers {
-                guard let points = LiveProjectedPoints.points(position: driver.position, session: name, retired: driver.retired), points > 0 else { continue }
+                guard !driver.isOutOfRunning, let points = LiveProjectedPoints.points(position: driver.position, session: name, retired: driver.retired), points > 0 else { continue }
                 let matches = season.drivers.filter { $0.driverNumber == Int(driver.id) }
                 guard matches.count == 1, let standing = matches.first else {
                     notes.append("Could not match \(driver.name) to the championship roster; \(points) points are unassigned.")

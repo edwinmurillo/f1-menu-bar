@@ -131,10 +131,11 @@ struct StandingsView: View {
 
     private func standingName(_ name: String, subtitle: String, color: String?, number: String? = nil, champion: Bool = false) -> some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 2).fill(Presentation.color(hex: color)).frame(width: 3, height: 28).accessibilityHidden(true)
             if let number {
-                Text(number).font(.callout.weight(.semibold)).monospacedDigit()
-                    .frame(width: 25).accessibilityLabel("Racing number \(number)")
+                DriverNumberBadge(number: number, team: subtitle, colorHex: color)
+            } else {
+                RoundedRectangle(cornerRadius: 2).fill(TeamAppearance.color(team: name, provided: color))
+                    .frame(width: 3, height: 28).accessibilityHidden(true)
             }
             VStack(alignment: .leading, spacing: 4) {
                 HStack(spacing: 5) {
