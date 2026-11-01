@@ -11,6 +11,7 @@ final class TrackMapTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(replay.cars[0].position(at: 0)).x, 0, accuracy: 0.01)
         XCTAssertEqual(try XCTUnwrap(replay.cars[0].position(at: 6)).x, 100, accuracy: 0.01)
         XCTAssertEqual(try XCTUnwrap(replay.cars[1].position(at: 0)).y, 100, accuracy: 0.01)
+        XCTAssertEqual(try XCTUnwrap(replay.positionOnOutline(at: 0.5)).x, 100, accuracy: 0.01)
         XCTAssertTrue(TrackMapReplay.preview(drivers: [], outline: []).cars.isEmpty)
     }
 

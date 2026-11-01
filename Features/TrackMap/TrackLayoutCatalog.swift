@@ -6,6 +6,7 @@ enum TrackLayoutCatalog {
         let name: String
         let location: String
         let points: [[Double]]
+        let startIndex: Int?
     }
 
     private static let layouts: [Layout] = {
@@ -24,10 +25,12 @@ enum TrackLayoutCatalog {
             ?? layouts.first { !location.isEmpty && normalized($0.location) == location }
             ?? layouts.first { !location.isEmpty && (normalized($0.location).contains(location) || location.contains(normalized($0.location))) }
             ?? layouts.first { name.contains(normalized($0.location)) }
-        return match?.points.compactMap { point in
+        let points: [TrackMapPoint] = match?.points.compactMap { point -> TrackMapPoint? in
             guard point.count == 2, point[0].isFinite, point[1].isFinite else { return nil }
             return TrackMapPoint(x: point[0], y: point[1])
         } ?? []
+        guard !points.isEmpty, let index = match?.startIndex, points.indices.contains(index) else { return points }
+        return Array(points[index...]) + Array(points[..<index])
     }
 
     private static func normalized(_ text: String) -> String {

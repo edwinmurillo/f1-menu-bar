@@ -14,19 +14,39 @@ struct TrackMapView: View {
     @State private var isPlaying = true
     @State private var playhead = 0.0
     @State private var selectedDriver: Int?
+    @State private var clockNow = Date()
     private let ticker = Timer.publish(every: 0.1, on: .main, in: .common).autoconnect()
 
     private var weekends: [RaceWeekend] {
         season.visibleSnapshot.weekends.filter { !$0.isCancelled && !$0.isMissingFromSchedule && $0.firstStart.map { $0 <= season.now } == true }
     }
     private var weekend: RaceWeekend? {
-        weekends.first { $0.id == weekendID } ?? weekends.last(where: { $0.winner != nil }) ?? weekends.last
+        if let selected = weekends.first(where: { $0.id == weekendID }) { return selected }
+        if liveStore.state.phase == .connected,
+           liveStore.state.snapshot.hasFreshTiming(at: clockNow),
+           let meeting = liveStore.state.snapshot.meetingName?.lowercased(),
+           let current = weekends.first(where: {
+               $0.name.lowercased().contains(meeting) || meeting.contains($0.name.lowercased())
+           }) { return current }
+        return weekends.last(where: { $0.winner != nil }) ?? weekends.last
     }
     private var sessions: [RaceSession] {
         (weekend?.activeSessions ?? []).filter { $0.start.map { $0 <= season.now } == true }
             .sorted { ($0.start ?? .distantPast, $0.id) < ($1.start ?? .distantPast, $1.id) }
     }
     private var session: RaceSession? { sessions.first { $0.id == sessionID } ?? sessions.last }
+    private var matchesLiveSession: Bool {
+        guard let weekend, let session, let meeting = liveStore.state.snapshot.meetingName,
+              let name = liveStore.state.snapshot.sessionName else { return false }
+        let selected = weekend.name.lowercased(), reported = meeting.lowercased()
+        return (selected.contains(reported) || reported.contains(selected)) &&
+            name.caseInsensitiveCompare(session.name) == .orderedSame
+    }
+    private var timingEstimate: TrackTimingEstimate? {
+        guard shown.isPreview, matchesLiveSession, liveStore.state.phase == .connected else { return nil }
+        return TrackTimingEstimate.make(snapshot: liveStore.state.snapshot,
+            lapStartedAt: liveStore.observedLapStartedAt, observedLap: liveStore.observedLap, now: clockNow)
+    }
     private var preview: TrackMapReplay {
         let live = liveStore.state.snapshot.drivers.compactMap { driver -> (number: Int, name: String, color: String?)? in
             guard let number = Int(driver.id) else { return nil }
@@ -36,7 +56,8 @@ struct TrackMapView: View {
             guard let number = driver.driverNumber else { return nil }
             return (number, driver.name, driver.teamColor)
         }
-        return .preview(drivers: live.isEmpty ? standings : live, outline: TrackLayoutCatalog.outline(for: weekend))
+        return .preview(drivers: matchesLiveSession && !live.isEmpty ? live : standings,
+                        outline: TrackLayoutCatalog.outline(for: weekend))
     }
     private var shown: TrackMapReplay { replay ?? preview }
 
@@ -58,8 +79,10 @@ struct TrackMapView: View {
                         }
                         playbackControls
                     }
-                    Text(shown.isPreview
-                         ? "Real circuit outline · Car positions are illustrative until recorded location samples load."
+                    Text(timingEstimate != nil
+                         ? "Timing estimate · Leader progress uses an observed lap transition and reference lap time; other cars use their gaps to the leader. These are not measured coordinates."
+                         : shown.isPreview
+                         ? "Real circuit outline · Car positions are illustrative until recorded location samples load. Start/finish is approximate on uncalibrated layouts."
                          : "\(shown.sourceName) · Recorded car positions for lap \(shown.lap). The outline and cars use the same X/Y coordinates; lateral placement is approximate.")
                         .font(.caption).foregroundStyle(.secondary)
                     Link(shown.sourceName.hasPrefix("TracingInsights") ? "Recorded telemetry source" : "About OpenF1 location data",
@@ -75,7 +98,8 @@ struct TrackMapView: View {
         .background(Color(nsColor: .windowBackgroundColor))
         .task(id: session?.id) { await load() }
         .onReceive(ticker) { _ in
-            guard isPlaying, shown.duration > 0 else { return }
+            clockNow = Date()
+            guard timingEstimate == nil, isPlaying, shown.duration > 0 else { return }
             playhead += 0.1 * (shown.isPreview ? 1 : 8)
             if playhead > shown.duration { playhead = 0 }
         }
@@ -96,18 +120,20 @@ struct TrackMapView: View {
     }
 
     private var mapPanel: some View {
-        TrackMapCanvas(replay: shown, seconds: playhead, selectedDriver: selectedDriver)
+        TrackMapCanvas(replay: shown, seconds: playhead, selectedDriver: selectedDriver, estimate: timingEstimate)
             .frame(minHeight: 390)
             .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 7) {
                     Circle().fill(shown.isPreview ? .orange : .green).frame(width: 7, height: 7)
-                    Text(shown.isPreview ? "REAL LAYOUT · SIMULATED CARS" : "RECORDED POSITION · LAP \(shown.lap)")
+                    Text(timingEstimate.map { "TIMING ESTIMATE · LAP \($0.lap)" } ??
+                         (shown.isPreview ? "REAL LAYOUT · SIMULATED CARS" : "RECORDED POSITION · LAP \(shown.lap)"))
                         .font(.caption2.weight(.bold)).tracking(0.8)
                 }
                 .padding(10).background(.regularMaterial, in: Capsule()).padding(14)
             }
-            .accessibilityLabel(shown.isPreview ? "Real circuit outline with simulated car positions" : "Track map from recorded car locations")
+            .accessibilityLabel(timingEstimate != nil ? "Real circuit outline with car positions estimated from live timing" :
+                shown.isPreview ? "Real circuit outline with simulated car positions" : "Track map from recorded car locations")
     }
 
     private var driverList: some View {
@@ -142,13 +168,20 @@ struct TrackMapView: View {
     }
 
     private var playbackControls: some View {
-        HStack(spacing: 14) {
-            Button { isPlaying.toggle() } label: {
-                Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
-            }.buttonStyle(.bordered)
-            Slider(value: $playhead, in: 0...max(shown.duration, 1)) { Text("Replay position") }
-            Text("\(Int(playhead)) / \(Int(shown.duration)) s")
-                .font(.caption.monospacedDigit()).frame(width: 76, alignment: .trailing)
+        Group {
+            if let estimate = timingEstimate {
+                Label("Lap \(estimate.lap) · estimating \(estimate.progressByNumber.count) cars from live timing gaps", systemImage: "clock.arrow.circlepath")
+                    .font(.caption).foregroundStyle(.secondary)
+            } else {
+                HStack(spacing: 14) {
+                    Button { isPlaying.toggle() } label: {
+                        Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                    }.buttonStyle(.bordered)
+                    Slider(value: $playhead, in: 0...max(shown.duration, 1)) { Text("Replay position") }
+                    Text("\(Int(playhead)) / \(Int(shown.duration)) s")
+                        .font(.caption.monospacedDigit()).frame(width: 76, alignment: .trailing)
+                }
+            }
         }
     }
 
@@ -177,6 +210,7 @@ private struct TrackMapCanvas: View {
     let replay: TrackMapReplay
     let seconds: Double
     let selectedDriver: Int?
+    let estimate: TrackTimingEstimate?
 
     var body: some View {
         Canvas { context, size in
@@ -196,8 +230,28 @@ private struct TrackMapCanvas: View {
             if replay.isPreview { path.closeSubpath() }
             context.stroke(path, with: .color(.primary.opacity(0.11)), style: StrokeStyle(lineWidth: 19, lineCap: .round, lineJoin: .round))
             context.stroke(path, with: .color(.primary.opacity(0.7)), style: StrokeStyle(lineWidth: 4, lineCap: .round, lineJoin: .round))
+            let start = point(replay.outline[0])
+            let nextCoordinate = replay.outline.dropFirst().first {
+                hypot($0.x - replay.outline[0].x, $0.y - replay.outline[0].y) > 1
+            } ?? replay.outline[1]
+            let next = point(nextCoordinate)
+            let dx = next.x - start.x, dy = next.y - start.y
+            let tangentLength = max(hypot(dx, dy), 0.001)
+            let crossX = -dy / tangentLength * 13, crossY = dx / tangentLength * 13
+            var startLine = Path()
+            startLine.move(to: CGPoint(x: start.x - crossX, y: start.y - crossY))
+            startLine.addLine(to: CGPoint(x: start.x + crossX, y: start.y + crossY))
+            context.stroke(startLine, with: .color(.black), style: StrokeStyle(lineWidth: 8, lineCap: .butt))
+            context.stroke(startLine, with: .color(.white), style: StrokeStyle(lineWidth: 5, lineCap: .butt))
+            context.draw(Text(replay.isPreview ? "START / FINISH ≈" : "START / FINISH")
+                .font(.caption2.weight(.bold)).foregroundColor(.primary),
+                at: CGPoint(x: start.x, y: start.y - 20), anchor: .bottom)
             for car in replay.cars {
-                guard let location = car.position(at: seconds) else { continue }
+                let location: TrackMapPoint?
+                if let estimate {
+                    location = estimate.progressByNumber[car.id].flatMap { replay.positionOnOutline(at: $0) }
+                } else { location = car.position(at: seconds) }
+                guard let location else { continue }
                 let center = point(location)
                 let selected = car.id == selectedDriver
                 let color = Presentation.color(hex: car.teamColor)

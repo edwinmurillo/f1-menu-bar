@@ -25,6 +25,27 @@ private actor ControlledLiveFeed: LiveTimingFeed {
 }
 
 @MainActor final class LiveTimingStoreTests: XCTestCase {
+    func testObservedLapTransitionProvidesTimingAnchorAndResets() async {
+        let feed = ControlledLiveFeed()
+        let store = LiveTimingStore(feed: feed)
+        store.setVisible(true)
+        await feed.waitForRuns(1)
+        let start = Date(timeIntervalSince1970: 1_800_000_000)
+        var snapshot = LiveTimingSnapshot()
+        snapshot.sessionID = "race-a"; snapshot.sessionName = "Race"
+        snapshot.currentLap = 10; snapshot.receivedAt = start
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: snapshot), run: 0)
+        XCTAssertNil(store.observedLapStartedAt)
+        snapshot.currentLap = 11; snapshot.receivedAt = start.addingTimeInterval(2)
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: snapshot), run: 0)
+        XCTAssertEqual(store.observedLap, 11)
+        XCTAssertEqual(store.observedLapStartedAt, start.addingTimeInterval(2))
+        snapshot.sessionID = "race-b"; snapshot.currentLap = 1
+        await feed.emit(LiveTimingState(phase: .connected, snapshot: snapshot), run: 0)
+        XCTAssertNil(store.observedLapStartedAt)
+        store.stop(); await feed.finishAll()
+    }
+
     func testFreshPracticeUpdateCreatesLocalRecordingButSubscriptionSnapshotDoesNot() async {
         let feed = ControlledLiveFeed()
         let store = LiveTimingStore(feed: feed)
