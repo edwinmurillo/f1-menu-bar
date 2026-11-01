@@ -179,7 +179,8 @@ import XCTest
         }
         snapshot.resultsUpdatedAt = Date(timeIntervalSince1970: 1_800_000_000)
         snapshot.qualifyingUpdatedAt = snapshot.resultsUpdatedAt
-        snapshot.driverContext = ChampionshipContext(sessionID: 241, meetingName: "Fixture Event 24 Grand Prix", updatedAt: snapshot.resultsUpdatedAt!)
+        snapshot.driverContext = ChampionshipContext(sessionID: 241, meetingName: snapshot.weekends.last!.name, updatedAt: snapshot.resultsUpdatedAt!)
+        snapshot.constructorContext = snapshot.driverContext
         return snapshot
     }
 }

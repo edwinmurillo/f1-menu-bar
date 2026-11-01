@@ -68,6 +68,31 @@ import XCTest
         }
     }
 
+    func testCalendarShowsOngoingWeekendAndSessionStatus() async throws {
+        _ = NSApplication.shared
+        let parser = ISO8601DateFormatter()
+        let snapshot = try fixture(parser)
+        let now = try XCTUnwrap(parser.date(from: "2026-11-01T18:00:00Z"))
+        let store = SeasonStore(repository: PanelRepository(snapshot: snapshot), clock: { now })
+        await store.start()
+        let preferences = AppPreferences(defaults: UserDefaults(suiteName: "CalendarOngoing-\(UUID().uuidString)")!)
+        preferences.useUTC = true
+        let root = CalendarView(store: store, preferences: preferences, coordinator: AppCoordinator())
+            .background(Color(nsColor: .windowBackgroundColor)).tint(Color.primary)
+        let host = NSHostingView(rootView: root)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false; window.contentView = host
+        defer { store.cancelRefresh(); window.contentView = nil; window.close() }
+        window.appearance = NSAppearance(named: .darkAqua)
+        host.layoutSubtreeIfNeeded()
+        XCTAssertLessThanOrEqual(host.fittingSize.height, 721)
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in: host.bounds))
+        host.cacheDisplay(in: host.bounds, to: bitmap)
+        let directory = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appending(path: ".build/screenshots")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try XCTUnwrap(bitmap.representation(using: .png, properties: [:])).write(to: directory.appending(path: "calendar-ongoing-dark.png"))
+    }
+
     private func fixture(_ parser: ISO8601DateFormatter) throws -> SeasonSnapshot {
         let values = [
             ("Practice 1", "2026-10-30T15:00:00Z", "2026-10-30T16:00:00Z"),

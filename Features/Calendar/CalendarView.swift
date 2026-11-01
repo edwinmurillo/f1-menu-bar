@@ -5,6 +5,7 @@ struct CalendarView: View {
     let store: SeasonStore
     let preferences: AppPreferences
     @Bindable var coordinator: AppCoordinator
+    var liveStore: LiveTimingStore? = nil
     @State private var selectedID: Int?
 
     private var snapshot: SeasonSnapshot { store.visibleSnapshot }
@@ -61,9 +62,13 @@ struct CalendarView: View {
                                     .disabled(!selected.hasStartedTimelineSession(at: store.now))
                                     .help("Open available session history")
                                     .accessibilityHint("Opens available session history for \(selected.name)")
-                                WeekendDetailView(weekend: selected,
-                                status: store.policy.status(of: selected, in: snapshot.weekends, now: store.now),
-                                now: store.now, zone: preferences.timeZone)
+                                TimelineView(.periodic(from: .now, by: 1)) { clock in
+                                    WeekendDetailView(weekend: selected,
+                                        status: store.policy.status(of: selected, in: snapshot.weekends, now: store.now),
+                                        now: liveStore == nil ? store.now : clock.date, zone: preferences.timeZone,
+                                        ongoing: store.policy.isOngoing(selected, now: store.now, timeZone: preferences.timeZone),
+                                        liveSnapshot: liveStore?.state.snapshot)
+                                }
                             }
                         }
                     }.frame(width: 255)
@@ -94,7 +99,9 @@ struct CalendarView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
             Spacer(minLength: 6)
-            StatusBadge(status: status)
+            if store.policy.isOngoing(weekend, now: store.now, timeZone: preferences.timeZone) {
+                OngoingWeekendBadge()
+            } else { StatusBadge(status: status) }
         }
         .padding(.vertical, 13).padding(.horizontal, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -110,13 +117,15 @@ struct WeekendDetailView: View {
     let status: WeekendStatus
     let now: Date
     let zone: TimeZone
+    var ongoing = false
+    var liveSnapshot: LiveTimingSnapshot? = nil
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             Image(systemName: "flag.checkered").font(.system(size: 22)).padding(12)
                 .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 12))
                 .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 7) {
-                StatusBadge(status: status)
+                if ongoing { OngoingWeekendBadge() } else { StatusBadge(status: status) }
                 Text(weekend.name).font(.system(size: 21, weight: .semibold)).tracking(-0.4)
                 Text([weekend.circuit, weekend.country].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.callout).foregroundStyle(.secondary)
@@ -134,9 +143,18 @@ struct WeekendDetailView: View {
             } else if status == .unavailable {
                 IssueBanner(message: "This event is missing from the latest calendar. Previously saved times are shown.")
             }
-            SessionScheduleView(weekend: weekend, now: now, zone: zone, compact: true)
+            SessionScheduleView(weekend: weekend, now: now, zone: zone, compact: true, showsSessionStatus: true, liveSnapshot: liveSnapshot)
             Divider()
             Label("All times in \(zone.identifier)", systemImage: "globe").font(.caption).foregroundStyle(.secondary)
         }.frame(maxWidth: .infinity, alignment: .leading).padding(.trailing, 2).padding(.top, 12)
+    }
+}
+
+private struct OngoingWeekendBadge: View {
+    var body: some View {
+        Text("Ongoing").font(.caption.weight(.medium)).foregroundStyle(.green)
+            .padding(.horizontal, 7).padding(.vertical, 4)
+            .background(Color.green.opacity(0.12), in: Capsule())
+            .accessibilityLabel("Ongoing Grand Prix weekend")
     }
 }

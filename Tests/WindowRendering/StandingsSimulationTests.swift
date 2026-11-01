@@ -8,11 +8,14 @@ import XCTest
         let date = ISO8601DateFormatter().date(from: "2026-11-01T21:00:00Z")!
         var season = SeasonSnapshot(year: 2026)
         season.weekends = [RaceWeekend(id: 1, year: 2026, name: "Test GP", sessions: [RaceSession(id: 10, name: "Race", start: date)])]
+        season.weekends.insert(RaceWeekend(id: 0, year: 2026, name: "Previous GP", sessions: [RaceSession(id: 0, name: "Race", start: date.addingTimeInterval(-7 * 86400))]), at: 0)
+        season.driverContext = ChampionshipContext(sessionID: 0, meetingName: "Previous GP", updatedAt: date)
+        season.constructorContext = season.driverContext
         season.drivers = [
             DriverStanding(driverNumber: 1, position: 1, name: "One", team: "Team", teamColor: nil, points: 100.5),
             DriverStanding(driverNumber: 2, position: 2, name: "Two", team: "Team", teamColor: nil, points: 95)
         ]
-        season.constructors = [ConstructorStanding(name: "Team", position: 1, drivers: "One, Two", color: nil, points: 195.5)]
+        season.constructors = [ConstructorStanding(name: "Team", position: 1, drivers: "One, Two", color: nil, points: 195.5), ConstructorStanding(name: "Other", position: 2, drivers: "", color: nil, points: 190)]
         var timing = LiveTimingSnapshot()
         timing.meetingName = "Test GP"; timing.sessionName = "Race"; timing.receivedAt = date
         timing.drivers = [driver("1", position: 2), driver("2", position: 1)]
@@ -30,6 +33,8 @@ import XCTest
         XCTAssertEqual(result.drivers.map(\.total), [120, 118.5])
         XCTAssertEqual(result.teams.first?.added, 43)
         XCTAssertEqual(result.teams.first?.total, 238.5)
+        XCTAssertEqual(result.drivers.filter(\.isChampion).map(\.name), ["Two"])
+        XCTAssertEqual(result.teams.filter(\.isChampion).map(\.name), ["Team"])
         XCTAssertEqual(season.drivers.first?.points, 100.5)
     }
     func testAlreadyIncludedAndWrongYearDoNotDoubleCount() {

@@ -239,3 +239,5 @@ Replace the fixed preview limits with one-line previews that fit the available w
 - Merge Race timeline into Live timing, first in the sidebar. Include recorded-lap scrubbing, explicit Go Live/follow mode, collapsible position history, and access to historical GP/session selection within the same destination.
 
 - Live Pts* column includes compact padded values and a Simulate sheet for full-field driver/team totals, with explicit baseline context and session double-count protection.
+
+- Calendar Ongoing status mirrors the menu. Add centered racing numbers to driver name cells and gold clinched-title trophies to published and projected standings, using conservative remaining GP/Sprint point capacity.

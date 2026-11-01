@@ -54,10 +54,10 @@ struct LiveTimingRows: View {
     private var gapHelp: String {
         showsIntervals ? "Interval to the driver ahead. Click to show gap to leader." : "Gap to leader. Click to show interval to the driver ahead."
     }
-    private var driverWidth: CGFloat { min(170, max(110, availableWidth * 0.14)) }
+    private var driverWidth: CGFloat { min(185, max(140, availableWidth * 0.16)) }
     // Numeric columns, gaps and horizontal padding retain their widths. Extra
     // window space goes to tyre history, immediately after the driver column.
-    private var historyWidth: CGFloat { max(240, availableWidth - driverWidth - 430) }
+    private var historyWidth: CGFloat { max(210, availableWidth - driverWidth - 430) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -127,6 +127,8 @@ struct LiveTimingRows: View {
     private func driverCell(_ driver: LiveDriverTiming) -> some View {
         HStack(spacing: 8) {
             Capsule().fill(Presentation.color(hex: driver.teamColor)).frame(width: 3, height: 28)
+            Text(driver.id).font(.callout.weight(.semibold)).monospacedDigit()
+                .frame(width: 25).accessibilityLabel("Racing number \(driver.id)")
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Button { select(driver.id) } label: {

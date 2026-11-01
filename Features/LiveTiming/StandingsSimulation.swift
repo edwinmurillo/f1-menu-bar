@@ -8,6 +8,7 @@ struct StandingsSimulation: Identifiable {
         let name: String
         let current: Double
         let added: Int
+        var isChampion = false
         var total: Double { current + Double(added) }
     }
     let id = UUID()
@@ -65,9 +66,22 @@ struct StandingsSimulation: Identifiable {
         }
         if let context = season.driverContext { notes.append("Driver baseline: after \(context.meetingName).") }
         if let context = season.constructorContext { notes.append("Team baseline: after \(context.meetingName).") }
+        var driverRows = sorted(season.drivers.map { Row(id: $0.id, name: $0.name, current: $0.points, added: driverAdds[$0.id] ?? 0) })
+        var teamRows = sorted(season.constructors.map { Row(id: $0.id, name: $0.name, current: $0.points, added: teamAdds[$0.id] ?? 0) })
+        let projected = weekend.map { RaceHistoryRequest(weekend: $0, provider: season.provider, sessionID: selected?.id) }
+        let completeProjection = canProject && !notes.contains { $0.contains("unassigned") }
+        func champion(_ rows: [Row], context: ChampionshipContext?, teams: Bool) -> String? {
+            guard completeProjection, season.issues[teams ? .constructors : .drivers] == nil else { return nil }
+            return ChampionshipClinchPolicy.championID(scores: rows.map { .init(id: $0.id, points: $0.total) },
+                remainingPoints: ChampionshipClinchPolicy.remainingPoints(in: season, context: context, constructors: teams, projectedSession: projected))
+        }
+        let driverChampion = champion(driverRows, context: season.driverContext, teams: false)
+        let teamChampion = champion(teamRows, context: season.constructorContext, teams: true)
+        for i in driverRows.indices { driverRows[i].isChampion = driverRows[i].id == driverChampion }
+        for i in teamRows.indices { teamRows[i].isChampion = teamRows[i].id == teamChampion }
+        notes.append("Gold trophy = title secured on points with this projection and the published calendar. Possible ties are not marked; unresolved scoring sessions remain in the maximum available points.")
         return Self(session: [timing.meetingName, timing.sessionName, timing.currentLap.map { "Lap \($0)" }].compactMap { $0 }.joined(separator: " · "),
-            drivers: sorted(season.drivers.map { Row(id: $0.id, name: $0.name, current: $0.points, added: driverAdds[$0.id] ?? 0) }),
-            teams: sorted(season.constructors.map { Row(id: $0.id, name: $0.name, current: $0.points, added: teamAdds[$0.id] ?? 0) }), notes: notes)
+            drivers: driverRows, teams: teamRows, notes: notes)
     }
 }
 
@@ -115,7 +129,10 @@ struct StandingsSimulationSheet: View {
             if rows.isEmpty { Text("Published standings are unavailable.").foregroundStyle(.secondary) }
             ForEach(rows) { row in
                 HStack {
-                    Text(row.name).frame(maxWidth: .infinity, alignment: .leading)
+                    HStack(spacing: 6) {
+                        Text(row.name)
+                        if row.isChampion { ChampionshipTrophy(projected: true) }
+                    }.frame(maxWidth: .infinity, alignment: .leading)
                     Text(row.current.formatted()).frame(width: 90, alignment: .trailing)
                     Text("+\(row.added)").frame(width: 80, alignment: .trailing)
                     Text(row.total.formatted()).fontWeight(.semibold).frame(width: 90, alignment: .trailing)
