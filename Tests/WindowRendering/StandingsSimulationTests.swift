@@ -26,6 +26,63 @@ import XCTest
             gap: nil, interval: nil, laps: nil, lastLap: nil, bestLap: nil, sectors: [], stops: nil,
             inPit: false, retired: false, knockedOut: false, stints: [])
     }
+    func testAntonelliProjectionClinchesWithFourRacesRemaining() {
+        var (season, timing) = inputs()
+        let date = timing.receivedAt!
+        for index in 1...4 {
+            season.weekends.append(RaceWeekend(id: 100 + index, year: 2026, name: "Remaining GP \(index)", sessions: [RaceSession(id: 1000 + index, name: "Race", start: date.addingTimeInterval(Double(index) * 7 * 86400))]))
+        }
+        let entries: [(Int, String, String, Double, Int)] = [
+            (12, "Kimi Antonelli", "Mercedes", 365, 3),
+            (3, "Max Verstappen", "Red Bull Racing", 236, 1),
+            (44, "Lewis Hamilton", "Ferrari", 241, 2),
+            (63, "George Russell", "Mercedes", 242, 6)
+        ]
+        season.drivers = entries.map { DriverStanding(driverNumber: $0.0, position: nil, name: $0.1, team: $0.2, teamColor: nil, points: $0.3) }
+        season.constructors = [] // An unavailable team projection must not hide the driver's cup.
+        timing.drivers = entries.map { LiveDriverTiming(id: String($0.0), position: $0.4, name: $0.1, abbreviation: "", team: $0.2, teamColor: nil,
+            gap: nil, interval: nil, laps: nil, lastLap: nil, bestLap: nil, sectors: [], stops: nil, inPit: false, retired: false, knockedOut: false, stints: []) }
+        let result = StandingsSimulation.make(season: season, timing: timing)
+        XCTAssertEqual(result.drivers.first?.name, "Kimi Antonelli")
+        XCTAssertEqual(result.drivers.first?.total, 380)
+        XCTAssertEqual(result.drivers[1].total, 261)
+        XCTAssertEqual(result.drivers.first?.isChampion, true)
+        let current = RaceHistoryRequest(weekend: season.weekends[1], provider: season.provider)
+        XCTAssertEqual(ChampionshipClinchPolicy.remainingPoints(in: season, context: season.driverContext, constructors: false, projectedSession: current), 100)
+    }
+
+    func testMissingLivePositionDoesNotInventAChampionshipClinch() {
+        let (season, initialTiming) = inputs()
+        var timing = initialTiming
+        timing.drivers[1] = LiveDriverTiming(id: "2", position: nil, name: "Two", abbreviation: "TWO", team: "Team", teamColor: nil,
+            gap: nil, interval: nil, laps: nil, lastLap: nil, bestLap: nil, sectors: [], stops: nil, inPit: false, retired: false, knockedOut: false, stints: [])
+        var result = StandingsSimulation.make(season: season, timing: timing)
+        XCTAssertTrue(result.drivers.allSatisfy { !$0.isChampion })
+        timing.drivers = []
+        result = StandingsSimulation.make(season: season, timing: timing)
+        XCTAssertTrue(result.drivers.allSatisfy { !$0.isChampion })
+    }
+
+    func testDriverChampionIsNotBlockedByUnmatchedConstructor() {
+        var (season, timing) = inputs()
+        season.constructors = []
+        let result = StandingsSimulation.make(season: season, timing: timing)
+        XCTAssertEqual(result.drivers.filter(\.isChampion).map(\.name), ["Two"])
+        XCTAssertTrue(result.notes.contains { $0.contains("team points are unassigned") })
+    }
+    func testCurrentLiveTeamWinsOverMultipleHistoricalDriverTeams() {
+        var (season, timing) = inputs()
+        season.drivers[1] = DriverStanding(driverNumber: 2, position: 2, name: "Two", team: "RB F1 Team / Red Bull", teamColor: nil, points: 95)
+        season.constructors = [ConstructorStanding(name: "RB F1 Team", position: 1, drivers: "", color: nil, points: 100), ConstructorStanding(name: "Red Bull", position: 2, drivers: "", color: nil, points: 90)]
+        timing.drivers = [LiveDriverTiming(id: "2", position: 1, name: "Two", abbreviation: "TWO", team: "Racing Bulls", teamColor: nil,
+            gap: nil, interval: nil, laps: nil, lastLap: nil, bestLap: nil, sectors: [], stops: nil, inPit: false, retired: false, knockedOut: false, stints: [])]
+        let result = StandingsSimulation.make(season: season, timing: timing)
+        XCTAssertEqual(result.teams.first { $0.name == "RB F1 Team" }?.added, 25)
+        XCTAssertEqual(result.teams.first { $0.name == "Red Bull" }?.added, 0)
+        XCTAssertFalse(result.notes.contains { $0.contains("unassigned") })
+        XCTAssertEqual(result.drivers.filter(\.isChampion).map(\.name), ["Two"])
+    }
+
     func testFullFieldTotalsRerankAndAggregateTeammatesWithoutChangingBaseline() {
         let (season, timing) = inputs()
         let result = StandingsSimulation.make(season: season, timing: timing)

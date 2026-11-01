@@ -18,6 +18,24 @@ import XCTest
         XCTAssertEqual(store.history?.request, second)
         XCTAssertFalse(store.isLoading)
     }
+    func testReturningToCancelledGPStartsAnotherLoad() async {
+        let repository = ControlledHistoryRepository()
+        let store = RaceHistoryStore(repository: repository)
+        let selected = request(1)
+        let first = Task { await store.load(selected) }
+        await repository.waitFor(1)
+        store.cancel()
+        await repository.finish(selected)
+        await first.value
+        XCTAssertNil(store.history)
+        let returning = Task { await store.load(selected) }
+        await repository.waitFor(2)
+        await repository.finish(selected)
+        await returning.value
+        XCTAssertEqual(store.history?.request, selected)
+        XCTAssertFalse(store.isLoading)
+    }
+
     func testFailedRefreshPreservesCachedHistoryAndExposesIssue() async {
         let repository = ControlledHistoryRepository(cached: request(1))
         let store = RaceHistoryStore(repository: repository, now: { Date(timeIntervalSince1970: 1_900_000_000) })

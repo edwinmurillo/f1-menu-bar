@@ -27,6 +27,10 @@ final class ChampionshipClinchPolicyTests: XCTestCase {
         XCTAssertNil(ChampionshipClinchPolicy.championID(scores: [Score(id: "a", points: 100), Score(id: "b", points: 100)], remainingPoints: 0))
         XCTAssertNil(ChampionshipClinchPolicy.championID(scores: [Score(id: "a", points: 999)], remainingPoints: 0))
     }
+    func testPublishedPointDeductionsDoNotSuppressAClinch() {
+        XCTAssertEqual(ChampionshipClinchPolicy.championID(scores: [.init(id: "leader", points: 100), .init(id: "deducted", points: -2)], remainingPoints: 100), "leader")
+    }
+
     func testUnknownContextScheduleOrDatesNeverClaimAChampion() {
         var value = season()
         XCTAssertNil(ChampionshipClinchPolicy.remainingPoints(in: value, context: nil, constructors: false))

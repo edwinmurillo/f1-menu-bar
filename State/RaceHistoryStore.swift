@@ -38,7 +38,7 @@ public final class RaceHistoryStore {
     }
 
     public func load(_ selected: RaceHistoryRequest, force: Bool = false) async {
-        if request == selected, let task, !force { await task.value; return }
+        if request == selected, let task, !task.isCancelled, !force { await task.value; return }
         task?.cancel(); generation += 1
         let token = generation
         let saved = memory[selected.key].flatMap { $0.request == selected ? $0 : nil }
