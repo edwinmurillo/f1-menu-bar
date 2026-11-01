@@ -47,9 +47,10 @@ public struct TrackMapReplay: Sendable {
     public let duration: Double
     public let lap: Int
     public let isPreview: Bool
+    public let sourceName: String
 
     public static func preview(drivers: [(number: Int, name: String, color: String?)], outline: [TrackMapPoint]) -> Self {
-        guard outline.count >= 3 else { return Self(cars: [], outline: [], duration: 12, lap: 0, isPreview: true) }
+        guard outline.count >= 3 else { return Self(cars: [], outline: [], duration: 12, lap: 0, isPreview: true, sourceName: "Preview") }
         // The circuit shape is measured geography. Only the car movement is illustrative.
         let closed = outline + [outline[0]]
         var distances = [0.0]
@@ -59,7 +60,7 @@ public struct TrackMapReplay: Sendable {
             distances.append(distances[index - 1] + hypot(dx, dy))
         }
         let length = distances.last ?? 0
-        guard length > 0 else { return Self(cars: [], outline: outline, duration: 12, lap: 0, isPreview: true) }
+        guard length > 0 else { return Self(cars: [], outline: outline, duration: 12, lap: 0, isPreview: true, sourceName: "Preview") }
         func coordinate(at fraction: Double) -> TrackMapPoint {
             let target = fraction.truncatingRemainder(dividingBy: 1) * length
             var low = 0, high = distances.count - 1
@@ -83,13 +84,33 @@ public struct TrackMapReplay: Sendable {
                 return TrackMapSample(seconds: Double(step) / 120 * 12, point: point)
             })
         }
-        return Self(cars: cars, outline: outline, duration: 12, lap: 0, isPreview: true)
+        return Self(cars: cars, outline: outline, duration: 12, lap: 0, isPreview: true, sourceName: "Preview")
     }
 }
 
 public actor TrackMapRepository {
     private let client: OpenF1Client
-    public init(client: OpenF1Client) { self.client = client }
+    private let recorded: TracingInsightsRepository
+    private var cached: [String: TrackMapReplay] = [:]
+    public init(client: OpenF1Client, recorded: TracingInsightsRepository = TracingInsightsRepository()) {
+        self.client = client; self.recorded = recorded
+    }
+
+    public func load(sessionID: Int, weekend: RaceWeekend, session: RaceSession, preferOpenF1: Bool = true) async throws -> TrackMapReplay {
+        let key = "\(weekend.year):\(weekend.name):\(session.name)"
+        if let replay = cached[key] { return replay }
+        let replay: TrackMapReplay
+        if preferOpenF1 {
+            do { replay = try await load(sessionID: sessionID) }
+            catch is CancellationError { throw CancellationError() }
+            catch { replay = try await recorded.load(year: weekend.year, weekend: weekend.name, session: session.name) }
+        } else {
+            replay = try await recorded.load(year: weekend.year, weekend: weekend.name, session: session.name)
+        }
+        if cached.count >= 3 { cached.removeAll() }
+        cached[key] = replay
+        return replay
+    }
 
     public func load(sessionID: Int) async throws -> TrackMapReplay {
         let query = [URLQueryItem(name: "session_key", value: String(sessionID)),
@@ -126,6 +147,6 @@ public actor TrackMapRepository {
             throw APIError.invalidData("Not enough car locations to trace this lap")
         }
         let outline = reference.samples.enumerated().compactMap { $0.offset.isMultiple(of: 2) ? $0.element.point : nil }
-        return TrackMapReplay(cars: cars, outline: outline, duration: duration, lap: 3, isPreview: false)
+        return TrackMapReplay(cars: cars, outline: outline, duration: duration, lap: 3, isPreview: false, sourceName: "OpenF1")
     }
 }

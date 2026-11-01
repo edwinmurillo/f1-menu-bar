@@ -20,7 +20,7 @@ struct TrackMapView: View {
         season.visibleSnapshot.weekends.filter { !$0.isCancelled && !$0.isMissingFromSchedule && $0.firstStart.map { $0 <= season.now } == true }
     }
     private var weekend: RaceWeekend? {
-        weekends.first { $0.id == weekendID } ?? weekends.last
+        weekends.first { $0.id == weekendID } ?? weekends.last(where: { $0.winner != nil }) ?? weekends.last
     }
     private var sessions: [RaceSession] {
         (weekend?.activeSessions ?? []).filter { $0.start.map { $0 <= season.now } == true }
@@ -59,10 +59,13 @@ struct TrackMapView: View {
                         playbackControls
                     }
                     Text(shown.isPreview
-                         ? "Real circuit outline · Car positions are illustrative until OpenF1 location samples load."
-                         : "OpenF1 location samples · Approximate car positions for lap \(shown.lap). The outline is traced from one driver's recorded path; lateral placement is not precise.")
+                         ? "Real circuit outline · Car positions are illustrative until recorded location samples load."
+                         : "\(shown.sourceName) · Recorded car positions for lap \(shown.lap). The outline and cars use the same X/Y coordinates; lateral placement is approximate.")
                         .font(.caption).foregroundStyle(.secondary)
-                    Link("About OpenF1 location data", destination: URL(string: "https://openf1.org/docs/#location")!)
+                    Link(shown.sourceName.hasPrefix("TracingInsights") ? "Recorded telemetry source" : "About OpenF1 location data",
+                         destination: URL(string: shown.sourceName.hasPrefix("TracingInsights")
+                             ? "https://github.com/TracingInsights/\(weekend?.year ?? season.visibleSnapshot.year)"
+                             : "https://openf1.org/docs/#location")!)
                         .font(.caption)
                 }
                 .padding(26)
@@ -99,12 +102,12 @@ struct TrackMapView: View {
             .overlay(alignment: .topLeading) {
                 HStack(spacing: 7) {
                     Circle().fill(shown.isPreview ? .orange : .green).frame(width: 7, height: 7)
-                    Text(shown.isPreview ? "REAL LAYOUT · SIMULATED CARS" : "OPENF1 · LAP \(shown.lap)")
+                    Text(shown.isPreview ? "REAL LAYOUT · SIMULATED CARS" : "RECORDED POSITION · LAP \(shown.lap)")
                         .font(.caption2.weight(.bold)).tracking(0.8)
                 }
                 .padding(10).background(.regularMaterial, in: Capsule()).padding(14)
             }
-            .accessibilityLabel(shown.isPreview ? "Real circuit outline with simulated car positions" : "Track map from OpenF1 location samples")
+            .accessibilityLabel(shown.isPreview ? "Real circuit outline with simulated car positions" : "Track map from recorded car locations")
     }
 
     private var driverList: some View {
@@ -150,20 +153,21 @@ struct TrackMapView: View {
     }
 
     private func load() async {
-        guard let session, season.visibleSnapshot.provider == .openF1 else {
+        guard let session, let weekend else {
             replay = nil
-            issue = "OpenF1 session identifiers are unavailable in this calendar. Showing an illustrative preview."
+            issue = "No started session is available. Showing an illustrative preview."
             return
         }
         isLoading = true; issue = nil
         defer { isLoading = false }
         do {
-            replay = try await repository.load(sessionID: session.id)
+            replay = try await repository.load(sessionID: session.id, weekend: weekend, session: session,
+                                               preferOpenF1: season.visibleSnapshot.provider == .openF1)
             playhead = 0; selectedDriver = nil; isPlaying = true
         } catch is CancellationError { }
         catch {
             replay = nil
-            issue = "Location data could not be loaded: \(error.localizedDescription) Showing an illustrative preview."
+            issue = "Recorded car locations could not be loaded: \(error.localizedDescription) Showing an illustrative preview."
             playhead = 0
         }
     }
