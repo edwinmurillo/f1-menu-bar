@@ -8,6 +8,30 @@ final class LiveTimingTests: XCTestCase {
         #"{"SessionInfo":{"Key":123,"Name":"Race","Meeting":{"Name":"Fixture GP"}},"SessionStatus":{"Status":"Started"},"DriverList":{"4":{"FullName":"Fixture Driver","Tla":"FIX","TeamName":"Fixture Team","TeamColour":"FF8800"}},"TimingData":{"Lines":{"4":{"Position":"2","GapToLeader":"+4.1","IntervalToPositionAhead":{"Value":"+1.2"},"NumberOfLaps":12,"NumberOfPitStops":1,"InPit":false,"LastLapTime":{"Value":"1:30.123"},"Sectors":[{"Value":"28.1"},{"Value":"31.2"},{"Value":"30.8"}]}}},"TimingAppData":{"Lines":{"4":{"Stints":[{"Compound":"SOFT","TotalLaps":12,"StartLaps":5,"New":"false"}]}}},"LapCount":{"CurrentLap":13,"TotalLaps":56}}"#
     }
 
+    func testStoppedDriversShowOutWithoutInventingRetirementAndCanReturn() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(initial), receivedAt: now)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Stopped":true,"Retired":false,"InPit":false,"PitOut":false}}}"#), timestamp: now, receivedAt: now)
+        var driver = try XCTUnwrap(reducer.snapshot().drivers.first)
+        XCTAssertFalse(driver.retired)
+        XCTAssertTrue(driver.isOutOfRunning)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"InPit":true}}}"#), timestamp: now, receivedAt: now)
+        XCTAssertFalse(try XCTUnwrap(reducer.snapshot().drivers.first).isOutOfRunning, "A stopped car in the pits still shows PIT")
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Stopped":false,"InPit":false,"PitOut":true}}}"#), timestamp: now, receivedAt: now)
+        driver = try XCTUnwrap(reducer.snapshot().drivers.first)
+        XCTAssertFalse(driver.isOutOfRunning)
+        XCTAssertEqual(driver.pitOut, true)
+        try reducer.apply(topic: "TimingData", value: json(#"{"Lines":{"4":{"Retired":true,"InPit":true}}}"#), timestamp: now, receivedAt: now)
+        XCTAssertTrue(try XCTUnwrap(reducer.snapshot().drivers.first).isOutOfRunning)
+    }
+
+    func testTrackStatusRetainsAuthoritativeCodeAlongsideMessage() throws {
+        var reducer = LiveTimingReducer()
+        try reducer.seed(json(#"{"TrackStatus":{"Status":"5","Message":"Red"}}"#), receivedAt: now)
+        XCTAssertEqual(reducer.snapshot().trackStatusCode, "5")
+        XCTAssertEqual(reducer.snapshot().trackStatus, "Red")
+    }
+
     func testSnapshotDoesNotClaimLiveAndTyreAgeIncludesPreviousUse() throws {
         var reducer = LiveTimingReducer()
         try reducer.seed(json(initial), receivedAt: now)

@@ -161,6 +161,7 @@ struct LiveTimingReducer {
         result.sessionName = info["Name"].text ?? info["Type"].text
         result.sessionStatus = topics["SessionStatus"]?["Status"].text
         result.trackStatus = topics["TrackStatus"]?["Message"].text
+        result.trackStatusCode = topics["TrackStatus"]?["Status"].text
         result.currentLap = topics["LapCount"]?["CurrentLap"].int
         result.totalLaps = topics["LapCount"]?["TotalLaps"].int
         result.airTemperature = topics["WeatherData"]?["AirTemp"].text
@@ -186,6 +187,7 @@ struct LiveTimingReducer {
                 stops: line["NumberOfPitStops"].int, inPit: line["InPit"].bool == true, retired: line["Retired"].bool == true,
                 knockedOut: line["KnockedOut"].bool == true, stints: stints)
             driver.pitOut = line["PitOut"].bool
+            driver.stopped = line["Stopped"].bool
             return driver
         }.sorted { ($0.position ?? .max, Int($0.id) ?? .max) < ($1.position ?? .max, Int($1.id) ?? .max) }
         result.messages = (topics["RaceControlMessages"]?["Messages"].ordered ?? []).reversed().compactMap { key, value in

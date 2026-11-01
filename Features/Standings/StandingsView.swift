@@ -10,6 +10,16 @@ struct StandingsView: View {
     @State private var selectedWinsDriver: DriverStanding?
     private var context: ChampionshipContext? { drivers ? snapshot.driverContext : snapshot.constructorContext }
 
+    private var championID: String? {
+        let section: DataSection = drivers ? .drivers : .constructors
+        guard snapshot.issues[section] == nil else { return nil }
+        let scores = drivers
+            ? snapshot.drivers.map { ChampionshipClinchPolicy.Score(id: $0.id, points: $0.points) }
+            : snapshot.constructors.map { ChampionshipClinchPolicy.Score(id: $0.id, points: $0.points) }
+        return ChampionshipClinchPolicy.championID(scores: scores,
+            remainingPoints: ChampionshipClinchPolicy.remainingPoints(in: snapshot, context: context, constructors: !drivers))
+    }
+
     var body: some View {
         Group {
             if drivers {
@@ -67,7 +77,7 @@ struct StandingsView: View {
                     Text(row.positionText ?? row.position.map(String.init) ?? "—")
                         .monospacedDigit().foregroundStyle(.secondary).padding(.top, 9)
                         .frame(width: 36, alignment: .leading)
-                    standingName(row.name, subtitle: row.team, color: row.teamColor)
+                    standingName(row.name, subtitle: row.team, color: row.teamColor, number: row.driverNumber.map(String.init) ?? "—", champion: championID == row.id)
                         .frame(width: driverWidth, alignment: .leading)
                     points(row.points).padding(.top, 6).frame(width: 65, alignment: .trailing)
                     SeasonWinsView(victories: SeasonStatistics.victories(for: row, in: snapshot), drivers: true,
@@ -89,7 +99,7 @@ struct StandingsView: View {
                     Table(snapshot.constructors) {
                         TableColumn("Pos") { row in Text(row.positionText ?? row.position.map(String.init) ?? "—").monospacedDigit().foregroundStyle(.secondary) }.width(40)
                         TableColumn("Constructor") { row in
-                            standingName(row.name, subtitle: row.drivers, color: row.color)
+                            standingName(row.name, subtitle: row.drivers, color: row.color, champion: championID == row.id)
                         }.width(min: 160, ideal: 210)
                         TableColumn("Points") { row in points(row.points) }.width(65).alignment(.trailing)
                         TableColumn("GP wins") { row in
@@ -119,11 +129,19 @@ struct StandingsView: View {
         }.font(.caption).foregroundStyle(.secondary)
     }
 
-    private func standingName(_ name: String, subtitle: String, color: String?) -> some View {
+    private func standingName(_ name: String, subtitle: String, color: String?, number: String? = nil, champion: Bool = false) -> some View {
         HStack(spacing: 12) {
-            RoundedRectangle(cornerRadius: 2).fill(Presentation.color(hex: color)).frame(width: 3, height: 28).accessibilityHidden(true)
+            if let number {
+                DriverNumberBadge(number: number, team: subtitle, colorHex: color)
+            } else {
+                RoundedRectangle(cornerRadius: 2).fill(TeamAppearance.color(team: name, provided: color))
+                    .frame(width: 3, height: 28).accessibilityHidden(true)
+            }
             VStack(alignment: .leading, spacing: 4) {
-                Text(name).font(.system(size: 13, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 5) {
+                    Text(name).font(.system(size: 13, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                    if champion { ChampionshipTrophy(projected: false) }
+                }
                 if !subtitle.isEmpty { Text(subtitle).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true) }
             }
         }.padding(.vertical, 9).accessibilityElement(children: .combine)

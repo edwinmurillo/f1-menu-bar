@@ -44,11 +44,50 @@ public actor JolpicaRepository: SeasonRepository {
                     driverID: result.driver.driverId, constructorID: result.constructor.constructorId)
             }
             for index in value.weekends.indices {
-                if let winner = winners[value.weekends[index].id] { value.weekends[index].winner = winner }
+                if let winner = winners[value.weekends[index].id] {
+                    value.weekends[index].winner = winner
+                    var podium = value.weekends[index].podium ?? []
+                    podium.removeAll { $0.position == 1 }
+                    podium.append(RacePodiumPlace(position: 1, driver: winner))
+                    value.weekends[index].podium = podium.sorted { $0.position < $1.position }
+                }
             }
             value.resultsUpdatedAt = now()
         } catch is CancellationError { throw CancellationError() }
         catch { value.issues[.results] = error.localizedDescription }
+        value = try await publishAndSave(value, publish: publish)
+
+        for position in 2...3 {
+            do {
+                let races = try await client.races(year: year, finishingPosition: position)
+                var seen: Set<Int> = []
+                var places: [Int: RacePodiumPlace] = [:]
+                for race in races {
+                    let id = try Self.eventID(year: year, race: race)
+                    guard seen.insert(id).inserted, let rows = race.results, rows.count == 1,
+                          let result = rows.first, result.position == String(position) else {
+                        throw APIError.invalidData("invalid Jolpica podium position")
+                    }
+                    guard let weekend = value.weekends.first(where: { $0.id == id }),
+                          !weekend.isCancelled, !weekend.isMissingFromSchedule,
+                          weekend.name == race.raceName, weekend.circuit == race.circuit.circuitName,
+                          (weekend.grandPrix?.start ?? .distantFuture) <= now() else { continue }
+                    places[id] = RacePodiumPlace(position: position, driver: RaceWinner(
+                        driverNumber: Int(result.number ?? result.driver.permanentNumber ?? ""),
+                        driverName: result.driver.name, team: result.constructor.name,
+                        driverID: result.driver.driverId, constructorID: result.constructor.constructorId))
+                }
+                for index in value.weekends.indices {
+                    if let place = places[value.weekends[index].id] {
+                        var podium = value.weekends[index].podium ?? []
+                        podium.removeAll { $0.position == position }
+                        podium.append(place)
+                        value.weekends[index].podium = podium.sorted { $0.position < $1.position }
+                    }
+                }
+            } catch is CancellationError { throw CancellationError() }
+            catch { value.issues[.results] = error.localizedDescription }
+        }
         value = try await publishAndSave(value, publish: publish)
 
         do {
@@ -129,9 +168,11 @@ public actor JolpicaRepository: SeasonRepository {
                 return RaceSession(id: id * 10 - index, name: entry.0, start: try time.timestamp())
             }.sorted { ($0.start ?? .distantFuture, -$0.id) < ($1.start ?? .distantFuture, -$1.id) }
             let old = previous.first { $0.id == id && $0.name == race.raceName && $0.circuit == race.circuit.circuitName }
-            return RaceWeekend(id: id, year: year, name: race.raceName, circuit: race.circuit.circuitName,
+            var weekend = RaceWeekend(id: id, year: year, name: race.raceName, circuit: race.circuit.circuitName,
                 country: race.circuit.location.country, location: race.circuit.location.locality,
                 sessions: sessions, winner: old?.winner, qualifyingWinner: old?.qualifyingWinner)
+            weekend.podium = old?.podium
+            return weekend
         }
         let ids = Set(mapped.map(\.id))
         guard ids.count == mapped.count else { throw APIError.invalidData("duplicate Jolpica races") }

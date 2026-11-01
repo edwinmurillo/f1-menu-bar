@@ -4,6 +4,15 @@ import XCTest
 @testable import F1Core
 
 @MainActor final class StandingsLayoutTests: XCTestCase {
+    func testProviderColorsTakePriorityAndFallbackTeamNamesHaveColors() {
+        XCTAssertEqual(TeamAppearance.hex(team: "Mercedes", provided: nil), "00D7B6")
+        XCTAssertEqual(TeamAppearance.hex(team: "Red Bull", provided: nil), TeamAppearance.hex(team: "Red Bull Racing", provided: nil))
+        XCTAssertEqual(TeamAppearance.hex(team: "RB F1 Team", provided: nil), "6C98FF")
+        XCTAssertEqual(TeamAppearance.hex(team: "Alpine F1 Team", provided: nil), "00A1E8")
+        XCTAssertEqual(TeamAppearance.hex(team: "Ferrari", provided: "ABCDEF"), "ABCDEF")
+        XCTAssertNil(TeamAppearance.hex(team: "Unknown team", provided: nil))
+    }
+
     func testWinLabelsCombineTheSameWeekendAndFlagsUseProviderCountryNames() {
         let weekend = RaceWeekend(id: 1, year: 2026, name: "Las Vegas Grand Prix", country: "USA", sessions: [])
         XCTAssertEqual(SeasonWinPresentation.label(WeekendVictory(weekend: weekend, qualifying: true, grandPrix: true)), "Quali & GP – Las Vegas")
@@ -179,7 +188,8 @@ import XCTest
         }
         snapshot.resultsUpdatedAt = Date(timeIntervalSince1970: 1_800_000_000)
         snapshot.qualifyingUpdatedAt = snapshot.resultsUpdatedAt
-        snapshot.driverContext = ChampionshipContext(sessionID: 241, meetingName: "Fixture Event 24 Grand Prix", updatedAt: snapshot.resultsUpdatedAt!)
+        snapshot.driverContext = ChampionshipContext(sessionID: 241, meetingName: snapshot.weekends.last!.name, updatedAt: snapshot.resultsUpdatedAt!)
+        snapshot.constructorContext = snapshot.driverContext
         return snapshot
     }
 }

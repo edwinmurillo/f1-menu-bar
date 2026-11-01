@@ -33,6 +33,13 @@ public struct RaceWinner: Codable, Equatable, Sendable {
     public var constructorID: String? = nil
 }
 
+public struct RacePodiumPlace: Codable, Equatable, Sendable, Identifiable {
+    public let position: Int
+    public let driver: RaceWinner
+    public var id: Int { position }
+    public init(position: Int, driver: RaceWinner) { self.position = position; self.driver = driver }
+}
+
 public struct RaceWeekend: Codable, Identifiable, Equatable, Sendable {
     public let id: Int
     public let year: Int
@@ -46,6 +53,7 @@ public struct RaceWeekend: Codable, Identifiable, Equatable, Sendable {
     public var isMissingFromSchedule: Bool
     public var winner: RaceWinner?
     public var qualifyingWinner: RaceWinner?
+    public var podium: [RacePodiumPlace]? = nil
 
     public init(id: Int, year: Int, name: String, circuit: String = "", country: String = "", location: String = "", start: Date? = nil, sessions: [RaceSession], isCancelled: Bool = false, isMissingFromSchedule: Bool = false, winner: RaceWinner? = nil, qualifyingWinner: RaceWinner? = nil) {
         self.id = id; self.year = year; self.name = name; self.circuit = circuit

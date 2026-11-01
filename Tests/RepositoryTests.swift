@@ -2,6 +2,16 @@ import XCTest
 @testable import F1Core
 
 final class RepositoryTests: XCTestCase {
+    func testInvalidDuplicatePodiumPreservesLastGoodWinnerAndPodium() async throws {
+        let previous = try await OpenF1Repository(client: OpenF1Client(transport: FixtureTransport(), requestSpacing: .zero), cache: MemoryCache(), now: { Fixtures.now }).refresh(year: 2026, previous: nil, publish: { _ in })
+        var responses = Fixtures.responses
+        responses["session_result"] = Fixtures.json(#"[{"session_key":13,"position":1,"driver_number":7},{"session_key":13,"position":2,"driver_number":8},{"session_key":13,"position":2,"driver_number":15}]"#)
+        let value = try await OpenF1Repository(client: OpenF1Client(transport: FixtureTransport(responses: responses), requestSpacing: .zero), cache: MemoryCache(), now: { Fixtures.now }).refresh(year: 2026, previous: previous, publish: { _ in })
+        XCTAssertEqual(value.weekends.first { $0.id == 1 }?.winner, previous.weekends.first { $0.id == 1 }?.winner)
+        XCTAssertEqual(value.weekends.first { $0.id == 1 }?.podium, previous.weekends.first { $0.id == 1 }?.podium)
+        XCTAssertNotNil(value.issues[.results])
+    }
+
     func testSprintScheduleTestingCancellationAndRaceWinner() async throws {
         let transport = FixtureTransport()
         let repository = OpenF1Repository(client: OpenF1Client(transport: transport, requestSpacing: .zero), cache: MemoryCache(), now: { Fixtures.now })
@@ -12,6 +22,9 @@ final class RepositoryTests: XCTestCase {
         XCTAssertTrue(weekend.hasSprint)
         XCTAssertEqual(weekend.winner?.driverName, "Current Driver")
         XCTAssertNotEqual(weekend.winner?.driverName, "Sprint Winner")
+        XCTAssertEqual(weekend.podium?.map(\.position), [1, 2, 3])
+        XCTAssertEqual(weekend.podium?.map { $0.driver.driverNumber }, [9, 8, 15])
+        XCTAssertFalse(weekend.podium?.contains { $0.driver.driverName == "Sprint Winner" } ?? true)
         XCTAssertTrue(try XCTUnwrap(value.weekends.first { $0.id == 4 }).isCancelled)
         let requests = await transport.requests
         XCTAssertTrue(requests.allSatisfy { $0.value(forHTTPHeaderField: "User-Agent")?.contains("F1MenuBar/") == true })

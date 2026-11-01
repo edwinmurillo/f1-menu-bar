@@ -6,6 +6,23 @@ import XCTest
 /// Exercise the real SwiftUI/AppKit layout in an offscreen window. No app launch,
 /// UI automation, live network, or screenshots are needed to catch this regression.
 @MainActor final class LiveTimingLayoutTests: XCTestCase {
+    func testTrackIndicatorsDoNotDefaultUnknownOrPitClosureToYellow() {
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "Yellow", code: "2", sessionStatus: "Aborted"), .red)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: nil, code: nil, sessionStatus: "Aborted"), .red)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "Yellow", code: "2", sessionStatus: "Started"), .yellow)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "PitExitClosed", code: nil), .pitExitClosed)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "PIT EXIT CLOSED", code: "8"), .pitExitClosed)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "PitExitOpen", code: nil), .pitExitOpen)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "Red", code: nil), .red)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: nil, code: "5"), .red)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "Yellow", code: "5"), .red)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "SCDeployed", code: nil), .safetyCar)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "AllClear", code: "1"), .clear)
+        XCTAssertEqual(LiveTrackIndicator.resolve(message: "New provider state", code: "99"), .unknown)
+        XCTAssertEqual(LiveTrackIndicator.pitExitClosed.symbol, "circle.fill")
+        XCTAssertEqual(LiveTrackIndicator.red.symbol, "flag.fill")
+    }
+
     func testProjectedPointsRespectSessionPositionAndRetirement() {
         XCTAssertEqual((1...11).map { LiveProjectedPoints.points(position: $0, session: "Race", retired: false) },
             [25, 18, 15, 12, 10, 8, 6, 4, 2, 1, 0])
@@ -106,6 +123,11 @@ import XCTest
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 835, height: 720), styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.contentView = host
         for (appearance, width) in [(NSAppearance.Name.aqua, 835), (.darkAqua, 1400)] {
+            if appearance == .darkAqua {
+                var suspended = fixture(stintCount: 8)
+                suspended.sessionStatus = "Aborted"; suspended.trackStatus = "Yellow"; suspended.trackStatusCode = "2"
+                await feed.send(LiveTimingState(phase: .connected, snapshot: suspended))
+            }
             window.setContentSize(NSSize(width: width, height: 720))
             window.appearance = NSAppearance(named: appearance)
             host.layoutSubtreeIfNeeded()

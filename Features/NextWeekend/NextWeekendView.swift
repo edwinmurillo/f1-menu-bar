@@ -86,9 +86,13 @@ struct NextWeekendView: View {
                     Spacer()
                     if weekend.hasSprint { Text("SPRINT").font(.caption2.weight(.semibold)).foregroundStyle(Presentation.accent) }
                 }
-                Text(weekend.name.replacingOccurrences(of: " Grand Prix", with: ""))
-                    .font(.system(size: 29, weight: .semibold)).tracking(-0.8)
-                    .fixedSize(horizontal: false, vertical: true)
+                HStack(alignment: .firstTextBaseline, spacing: 10) {
+                    Text(SeasonWinPresentation.flag(country: weekend.country))
+                        .font(.system(size: 27)).accessibilityHidden(true)
+                    Text(weekend.name.replacingOccurrences(of: " Grand Prix", with: ""))
+                        .font(.system(size: 29, weight: .semibold)).tracking(-0.8)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
                 Text([weekend.circuit, weekend.country].filter { !$0.isEmpty }.joined(separator: " · "))
                     .font(.callout).foregroundStyle(.secondary)
                 Label(Presentation.weekendDates(weekend, zone: preferences.timeZone), systemImage: "calendar")

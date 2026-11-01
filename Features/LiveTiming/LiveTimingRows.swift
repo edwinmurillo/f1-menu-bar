@@ -54,10 +54,10 @@ struct LiveTimingRows: View {
     private var gapHelp: String {
         showsIntervals ? "Interval to the driver ahead. Click to show gap to leader." : "Gap to leader. Click to show interval to the driver ahead."
     }
-    private var driverWidth: CGFloat { min(170, max(110, availableWidth * 0.14)) }
+    private var driverWidth: CGFloat { min(185, max(140, availableWidth * 0.16)) }
     // Numeric columns, gaps and horizontal padding retain their widths. Extra
     // window space goes to tyre history, immediately after the driver column.
-    private var historyWidth: CGFloat { max(240, availableWidth - driverWidth - 430) }
+    private var historyWidth: CGFloat { max(200, availableWidth - driverWidth - 440) }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -89,16 +89,16 @@ struct LiveTimingRows: View {
                 Text("Last lap").frame(width: 76, alignment: .leading)
                 Text("Laps").frame(width: 28, alignment: .leading)
                 Text("Stops").frame(width: 32, alignment: .leading)
-                Text("Pit").frame(width: 28, alignment: .leading)
+                Text("Status").frame(width: 38, alignment: .leading)
             }.font(.caption.weight(.medium)).foregroundStyle(.secondary)
                 .padding(.horizontal, 10).padding(.vertical, 12).background(.quaternary.opacity(0.35))
             ForEach(drivers) { driver in
                 HStack(spacing: 8) {
                     Text(driver.position.map(String.init) ?? "—").frame(width: 28, alignment: .leading)
                     driverCell(driver)
-                    Text(LiveProjectedPoints.points(position: driver.position, session: sessionName, retired: driver.retired).map(String.init) ?? "—")
+                    Text(projectedPoints(driver).map(String.init) ?? "—")
                         .frame(width: 82, alignment: .leading).padding(.horizontal, 6)
-                        .accessibilityLabel("Projected points: " + (LiveProjectedPoints.points(position: driver.position, session: sessionName, retired: driver.retired).map(String.init) ?? "unavailable"))
+                        .accessibilityLabel("Projected points: " + (projectedPoints(driver).map(String.init) ?? "unavailable"))
                     TyreHistorySummary(segments: driver.tyreHistory, driverName: driver.name, stints: driver.stints)
                         .frame(width: historyWidth, alignment: .leading)
                     Button { showsIntervals.toggle() } label: {
@@ -110,23 +110,29 @@ struct LiveTimingRows: View {
                     Text(driver.lastLap ?? "—").frame(width: 76, alignment: .leading)
                     Text(driver.laps.map(String.init) ?? "—").frame(width: 28, alignment: .leading)
                     Text(driver.stops.map(String.init) ?? "—").frame(width: 32, alignment: .leading)
-                    Text(driver.inPit ? "PIT" : driver.pitOut == true ? "OUT" : "—")
-                        .foregroundStyle(driver.inPit ? Color.orange : driver.pitOut == true ? Color.green : Color.secondary)
-                        .frame(width: 28, alignment: .leading)
+                    Text(driver.isOutOfRunning ? "OUT" : driver.inPit ? "PIT" : driver.pitOut == true ? "OUT" : "—")
+                        .foregroundStyle(driver.isOutOfRunning ? Color.secondary : driver.inPit ? Color.orange : driver.pitOut == true ? Color.green : Color.secondary)
+                        .frame(width: 38, alignment: .leading)
+                        .help(driver.retired ? "Retired from the session" : driver.isOutOfRunning ? "Stopped outside the pit lane" : driver.inPit ? "In pit lane" : driver.pitOut == true ? "Out lap" : "On track")
                 }.font(.callout).monospacedDigit()
                     .padding(.horizontal, 10).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
-                    .background(driver.retired ? Color.secondary.opacity(0.08) : selectedDriver == driver.id ? Presentation.accent.opacity(0.08) : Color.clear)
-                    .disabled(driver.retired)
-                    .saturation(driver.retired ? 0 : 1)
-                    .opacity(driver.retired ? 0.45 : 1)
+                    .background(driver.isOutOfRunning ? Color.secondary.opacity(0.08) : selectedDriver == driver.id ? Presentation.accent.opacity(0.08) : Color.clear)
+                    .disabled(driver.isOutOfRunning)
+                    .saturation(driver.isOutOfRunning ? 0 : 1)
+                    .opacity(driver.isOutOfRunning ? 0.45 : 1)
                 Divider()
             }
         }.background(.background, in: RoundedRectangle(cornerRadius: 10))
             .clipShape(RoundedRectangle(cornerRadius: 10))
     }
+    private func projectedPoints(_ driver: LiveDriverTiming) -> Int? {
+        guard !driver.isOutOfRunning else { return nil }
+        return LiveProjectedPoints.points(position: driver.position, session: sessionName, retired: driver.retired)
+    }
+
     private func driverCell(_ driver: LiveDriverTiming) -> some View {
         HStack(spacing: 8) {
-            Capsule().fill(Presentation.color(hex: driver.teamColor)).frame(width: 3, height: 28)
+            DriverNumberBadge(number: driver.id, team: driver.team, colorHex: driver.teamColor)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Button { select(driver.id) } label: {
@@ -155,7 +161,7 @@ struct LiveTimingRows: View {
                             }
                     }
                 }
-                Text(driver.retired ? "Retired" : driver.inPit ? "In pit lane" : driver.pitOut == true ? "Out lap" : driver.knockedOut ? "Knocked out" : driver.team)
+                Text(driver.team)
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }.frame(width: driverWidth, alignment: .leading)
