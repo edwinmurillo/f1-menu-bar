@@ -27,9 +27,10 @@ struct JolpicaHistoryPage: Decodable, Sendable {
     }
     struct Timing: Decodable, Sendable { let driverId: String; let position: String; let time: String }
     struct Result: Decodable, Sendable {
+        let number: String?
         let driver: JolpicaDriver
         let constructor: JolpicaConstructor
-        enum CodingKeys: String, CodingKey { case driver = "Driver", constructor = "Constructor" }
+        enum CodingKeys: String, CodingKey { case number, driver = "Driver", constructor = "Constructor" }
     }
     struct Pit: Decodable, Sendable { let driverId: String; let lap: String; let stop: String }
 }
@@ -125,7 +126,8 @@ enum JolpicaHistoryMapper {
         let roster = ids.map { id in
             let result = results.first { $0.driver.driverId == id }
             return RaceHistoryDriver(id: id, name: result.map { "\($0.driver.givenName) \($0.driver.familyName)" } ?? id,
-                abbreviation: result?.driver.code ?? id, team: result?.constructor.name ?? "", teamColor: nil)
+                abbreviation: result?.driver.code ?? id, team: result?.constructor.name ?? "", teamColor: nil,
+                racingNumber: result?.number ?? result?.driver.permanentNumber)
         }
         var best: [String: Double] = [:]
         let grouped = Dictionary(grouping: entries, by: { $0.0 })

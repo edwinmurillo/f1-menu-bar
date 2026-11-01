@@ -44,6 +44,7 @@ public struct RaceHistoryDriver: Codable, Identifiable, Equatable, Sendable {
     public let abbreviation: String
     public let team: String
     public let teamColor: String?
+    public var racingNumber: String? = nil
 }
 
 public struct RaceHistoryTiming: Codable, Equatable, Sendable {
@@ -57,6 +58,9 @@ public struct RaceHistoryTiming: Codable, Equatable, Sendable {
     public let stops: Int?
     public var inPit: Bool? = nil
     public var pitOut: Bool? = nil
+    public var retired: Bool? = nil
+    public var stopped: Bool? = nil
+    public var completedDriverLaps: Int? = nil
     public var tyreHistory: [TyreHistorySegment]? = nil
 }
 

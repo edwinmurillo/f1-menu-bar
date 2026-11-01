@@ -56,7 +56,7 @@ struct ChampionshipWindow: View {
         .navigationSplitViewStyle(.balanced)
         .background(WindowVisibilityReader { visible in
             isWindowVisible = visible
-            liveStore.setVisible(visible && coordinator.section == .live)
+            liveStore.setVisible(visible && coordinator.section == .live && coordinator.wantsLiveTiming)
         }.frame(width: 0, height: 0))
         .navigationTitle("F1 Menu Bar")
         .toolbar {
@@ -88,7 +88,10 @@ struct ChampionshipWindow: View {
         .onChange(of: coordinator.section) { _, section in
             logger.info("Navigate section=\(section.rawValue, privacy: .public) windowVisible=\(isWindowVisible)")
             columnVisibility = .all
-            liveStore.setVisible(isWindowVisible && section == .live)
+            liveStore.setVisible(isWindowVisible && section == .live && coordinator.wantsLiveTiming)
+        }
+        .onChange(of: coordinator.wantsLiveTiming) { _, wanted in
+            liveStore.setVisible(isWindowVisible && coordinator.section == .live && wanted)
         }
         .onChange(of: coordinator.navigationRevision) { _, _ in columnVisibility = .all }
         .onDisappear {

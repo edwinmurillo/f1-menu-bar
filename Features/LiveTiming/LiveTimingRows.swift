@@ -49,6 +49,7 @@ struct LiveTimingRows: View {
     var fastestDriverIDs: Set<String> = []
     var sessionName: String? = nil
     var simulate: (() -> Void)? = nil
+    var projectedPointsEnabled = true
     @State private var showsIntervals = false
     @State private var fastestLapDriver: String?
     private var gapHelp: String {
@@ -66,15 +67,15 @@ struct LiveTimingRows: View {
                 Text("Driver").frame(width: driverWidth, alignment: .leading)
                 HStack(spacing: 4) {
                     Text("Pts*")
-                    Button { simulate?() } label: {
+                    if let simulate {
+                    Button { simulate() } label: {
                         Text("Simulate").font(.caption2.weight(.medium))
                             .foregroundStyle(.black)
                             .padding(.horizontal, 5).padding(.vertical, 3)
                             .background(.white, in: RoundedRectangle(cornerRadius: 4))
                             .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.15)))
                     }.buttonStyle(.plain).fixedSize()
-                        .disabled(simulate == nil)
-                        .opacity(simulate == nil ? 0.5 : 1)
+                    }
                 }.frame(width: 82, alignment: .leading).padding(.horizontal, 6)
                     .help("Projected full-distance points. Simulate driver and team standings with this result.")
                 Text("Tyre history").frame(width: historyWidth, alignment: .leading)
@@ -118,7 +119,6 @@ struct LiveTimingRows: View {
                     .padding(.horizontal, 10).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
                     .background(driver.isOutOfRunning ? Color.secondary.opacity(0.08) : selectedDriver == driver.id ? Presentation.accent.opacity(0.08) : Color.clear)
                     .disabled(driver.isOutOfRunning)
-                    .saturation(driver.isOutOfRunning ? 0 : 1)
                     .opacity(driver.isOutOfRunning ? 0.45 : 1)
                 Divider()
             }
@@ -126,13 +126,13 @@ struct LiveTimingRows: View {
             .clipShape(RoundedRectangle(cornerRadius: 10))
     }
     private func projectedPoints(_ driver: LiveDriverTiming) -> Int? {
-        guard !driver.isOutOfRunning else { return nil }
+        guard projectedPointsEnabled, !driver.isOutOfRunning else { return nil }
         return LiveProjectedPoints.points(position: driver.position, session: sessionName, retired: driver.retired)
     }
 
     private func driverCell(_ driver: LiveDriverTiming) -> some View {
         HStack(spacing: 8) {
-            DriverNumberBadge(number: driver.id, team: driver.team, colorHex: driver.teamColor)
+            DriverNumberBadge(number: driver.racingNumber ?? (Int(driver.id) == nil ? "—" : driver.id), team: driver.team, colorHex: driver.teamColor)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 5) {
                     Button { select(driver.id) } label: {

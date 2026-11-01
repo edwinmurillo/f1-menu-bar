@@ -48,7 +48,7 @@ Observe window visibility from the stable ChampionshipWindow container, outside 
 
 Use XCTest with a fixed clock, fixture transport, and temporary cache directories. Synchronize concurrent tests with continuations, gates, or expectations; never synchronize with `Task.sleep()` or `Task.yield()`. Test meaningful date boundaries, failure paths, and stale-response interleavings.
 
-For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep diagnostic fixtures and test controls out of release composition. Race timeline uses real historical API data or locally recorded live timing; no demo or simulated race data is included. It has one page scroll with fully expanded timing rows, a full-width lap slider, Previous/Next controls and GP/session pickers. Keep historical requests/caches separate from live connection ownership and championship snapshots.
+For UI delivery, build and launch on macOS, inspect the actual panel and windows, and capture visual evidence. Distinguish build success from visible behavior. Keep diagnostic fixtures and test controls out of release composition. Historical sessions use the same LiveTimingView and LiveTimingRows as current sessions, with real API data or locally recorded timing; no demo or simulated race data is included. Keep one page scroll with fully expanded rows, a full-width lap slider, Previous/Next controls and GP/session pickers. Live connection ownership is disabled for previous sessions; Simulate is available only for the current ongoing GP. Keep historical requests/caches separate from live connection ownership and championship snapshots.
 
 ## Working conventions
 

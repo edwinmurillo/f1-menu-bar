@@ -28,9 +28,11 @@ final class AppCoordinator {
     var section: AppSection = .calendar
     var selectedMeetingID: Int?
     var timelineRequest: RaceHistoryRequest?
+    var wantsLiveTiming = true
 
     func showTimeline(_ weekend: RaceWeekend, provider: DataProvider, at now: Date = Date()) {
         guard weekend.hasStartedTimelineSession(at: now) else { return }
+        wantsLiveTiming = false
         timelineRequest = RaceHistoryRequest(weekend: weekend, provider: provider)
         section = .live
         navigationRevision += 1
@@ -38,6 +40,7 @@ final class AppCoordinator {
     var navigationRevision = 0
     func show(_ section: AppSection, meetingID: Int? = nil, openWindow: OpenWindowAction) {
         self.section = section
+        if section == .live { timelineRequest = nil; wantsLiveTiming = true }
         if let meetingID { selectedMeetingID = meetingID }
         navigationRevision += 1
         openWindow(id: "championship")
