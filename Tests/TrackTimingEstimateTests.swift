@@ -18,15 +18,17 @@ final class TrackTimingEstimateTests: XCTestCase {
                 gap: "+1 LAP", interval: nil, laps: 10, lastLap: "1:42.000", bestLap: nil, sectors: [], stops: nil,
                 inPit: false, retired: false, knockedOut: false, stints: [])
         ]
-        let estimate = try XCTUnwrap(TrackTimingEstimate.make(snapshot: snapshot,
-            lapStartedAt: now.addingTimeInterval(-50), observedLap: 12, now: now))
-        XCTAssertEqual(estimate.lap, 12)
+        let estimate = try XCTUnwrap(TrackTimingEstimate.make(snapshot: snapshot, playbackSeconds: 25, now: now))
+        XCTAssertEqual(estimate.lap, 11)
         XCTAssertEqual(try XCTUnwrap(estimate.progressByNumber[1]), 0.5, accuracy: 0.001)
         XCTAssertEqual(try XCTUnwrap(estimate.progressByNumber[2]), 0.3, accuracy: 0.001)
         XCTAssertNil(estimate.progressByNumber[3], "A lap-count gap cannot determine a location")
-        XCTAssertNil(TrackTimingEstimate.make(snapshot: snapshot, lapStartedAt: nil, observedLap: 12, now: now))
-        XCTAssertNil(TrackTimingEstimate.make(snapshot: snapshot, lapStartedAt: now.addingTimeInterval(-50), observedLap: 11, now: now))
+        let start = try XCTUnwrap(TrackTimingEstimate.make(snapshot: snapshot, playbackSeconds: 0, now: now))
+        XCTAssertEqual(try XCTUnwrap(start.progressByNumber[1]), 0, accuracy: 0.001)
+        XCTAssertEqual(try XCTUnwrap(start.progressByNumber[2]), 0.8, accuracy: 0.001)
+        let restart = try XCTUnwrap(TrackTimingEstimate.make(snapshot: snapshot, playbackSeconds: 50, now: now))
+        XCTAssertEqual(try XCTUnwrap(restart.progressByNumber[1]), 0, accuracy: 0.001)
         snapshot.sessionName = "Practice 1"
-        XCTAssertNil(TrackTimingEstimate.make(snapshot: snapshot, lapStartedAt: now.addingTimeInterval(-50), observedLap: 12, now: now))
+        XCTAssertNil(TrackTimingEstimate.make(snapshot: snapshot, playbackSeconds: 25, now: now))
     }
 }

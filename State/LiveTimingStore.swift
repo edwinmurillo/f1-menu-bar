@@ -8,8 +8,6 @@ public final class LiveTimingStore {
     public private(set) var isRunning = false
     public private(set) var lapSnapshots: [Int: LiveTimingSnapshot] = [:]
     public private(set) var recording: LiveSessionRecording?
-    public private(set) var observedLapStartedAt: Date?
-    public private(set) var observedLap: Int?
     @ObservationIgnored private let feed: any LiveTimingFeed
     @ObservationIgnored private let archive: LiveLapArchive?
     @ObservationIgnored private var archiveSequence = 0
@@ -64,13 +62,10 @@ public final class LiveTimingStore {
         isRunning = false
         state.phase = .stopped
         state.message = nil
-        observedLapStartedAt = nil
-        observedLap = nil
     }
 
     private func receive(_ value: LiveTimingState, generation token: Int) {
         guard generation == token, !Task.isCancelled else { return }
-        let previous = state.snapshot
         if state.phase != value.phase || state.snapshot.drivers.isEmpty != value.snapshot.drivers.isEmpty {
             logger.info("Phase=\(String(describing: value.phase), privacy: .public) drivers=\(value.snapshot.drivers.count)")
         }
@@ -81,22 +76,10 @@ public final class LiveTimingStore {
         if let sessionID = snapshot.sessionID, loggedSessionID != sessionID {
             loggedSessionID = sessionID
             lapSnapshots = [:]
-            observedLapStartedAt = nil
-            observedLap = nil
             if recording?.sessionID != sessionID {
                 persistRecording(force: true)
                 recording = nil; lastArchivedAt = nil
             }
-        }
-        if snapshot.sessionID != nil, snapshot.sessionID == previous.sessionID, let lap = snapshot.currentLap,
-           lap != observedLap, let precedingLap = previous.currentLap, lap == precedingLap + 1,
-           let previousReceipt = previous.receivedAt, let receipt = snapshot.receivedAt,
-           (0...5).contains(receipt.timeIntervalSince(previousReceipt)) {
-            observedLap = lap
-            observedLapStartedAt = receipt
-        } else if let lap = snapshot.currentLap, let observedLap, lap != observedLap {
-            self.observedLap = nil
-            observedLapStartedAt = nil
         }
         if snapshot.sessionName == "Race", let sessionID = snapshot.sessionID,
            let lap = snapshot.currentLap, (1...200).contains(lap), !snapshot.drivers.isEmpty {

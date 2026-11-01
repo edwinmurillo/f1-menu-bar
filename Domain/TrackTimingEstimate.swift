@@ -7,17 +7,16 @@ public struct TrackTimingEstimate: Sendable {
     public let leaderLapTime: Double
     public let progressByNumber: [Int: Double]
 
-    public static func make(snapshot: LiveTimingSnapshot, lapStartedAt: Date?, observedLap: Int?, now: Date) -> Self? {
+    /// Replays the leader's most recently completed lap at twice its recorded speed.
+    public static func make(snapshot: LiveTimingSnapshot, playbackSeconds: Double, now: Date) -> Self? {
         guard ["Race", "Sprint"].contains(snapshot.sessionName ?? ""),
-              snapshot.hasFreshTiming(at: now), let lap = snapshot.currentLap,
-              observedLap == lap, let lapStartedAt,
+              snapshot.hasFreshTiming(at: now), let currentLap = snapshot.currentLap,
               let leader = snapshot.drivers.first(where: { $0.position == 1 && !$0.isOutOfRunning && !$0.inPit }),
               let leaderNumber = Int(leader.id) else { return nil }
-        let lapTimes = [leader.lastLap, leader.bestLap].compactMap { $0.flatMap(LapDuration.seconds) }
-        guard let lapTime = lapTimes.first(where: { (45...600).contains($0) }) else { return nil }
-        let elapsed = now.timeIntervalSince(lapStartedAt)
-        guard elapsed >= 0, elapsed <= lapTime * 1.2 else { return nil }
-        let leaderProgress = min(elapsed / lapTime, 0.999)
+        guard let lapTime = leader.lastLap.flatMap(LapDuration.seconds),
+              (45...600).contains(lapTime), playbackSeconds.isFinite else { return nil }
+        let duration = lapTime / 2
+        let leaderProgress = min(max(playbackSeconds, 0).truncatingRemainder(dividingBy: duration) / duration, 0.999)
         var progress = [leaderNumber: leaderProgress]
         for driver in snapshot.drivers where !driver.isOutOfRunning && !driver.inPit {
             guard let number = Int(driver.id), number != leaderNumber,
@@ -26,7 +25,7 @@ public struct TrackTimingEstimate: Sendable {
             let fraction = (leaderProgress - behind).truncatingRemainder(dividingBy: 1)
             progress[number] = fraction < 0 ? fraction + 1 : fraction
         }
-        return Self(lap: lap, leaderNumber: leaderNumber, leaderLapTime: lapTime,
+        return Self(lap: max(currentLap - 1, 1), leaderNumber: leaderNumber, leaderLapTime: lapTime,
                     progressByNumber: progress)
     }
 

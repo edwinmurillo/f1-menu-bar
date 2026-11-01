@@ -45,7 +45,7 @@ struct TrackMapView: View {
     private var timingEstimate: TrackTimingEstimate? {
         guard shown.isPreview, matchesLiveSession, liveStore.state.phase == .connected else { return nil }
         return TrackTimingEstimate.make(snapshot: liveStore.state.snapshot,
-            lapStartedAt: liveStore.observedLapStartedAt, observedLap: liveStore.observedLap, now: clockNow)
+            playbackSeconds: playhead, now: clockNow)
     }
     private var preview: TrackMapReplay {
         let live = liveStore.state.snapshot.drivers.compactMap { driver -> (number: Int, name: String, color: String?)? in
@@ -80,7 +80,7 @@ struct TrackMapView: View {
                         playbackControls
                     }
                     Text(timingEstimate != nil
-                         ? "Timing estimate · Leader progress uses an observed lap transition and reference lap time; other cars use their gaps to the leader. These are not measured coordinates."
+                         ? "2× timing simulation · The leader completes the last lap in half its reported time. Other cars are offset by their gap as a share of that lap. These are not measured coordinates."
                          : shown.isPreview
                          ? "Real circuit outline · Car positions are illustrative until recorded location samples load. Start/finish is approximate on uncalibrated layouts."
                          : "\(shown.sourceName) · Recorded car positions for lap \(shown.lap). The outline and cars use the same X/Y coordinates; lateral placement is approximate.")
@@ -99,9 +99,17 @@ struct TrackMapView: View {
         .task(id: session?.id) { await load() }
         .onReceive(ticker) { _ in
             clockNow = Date()
-            guard timingEstimate == nil, isPlaying, shown.duration > 0 else { return }
-            playhead += 0.1 * (shown.isPreview ? 1 : 8)
-            if playhead > shown.duration { playhead = 0 }
+            guard isPlaying else { return }
+            if let estimate = timingEstimate {
+                playhead += 0.1
+                if playhead >= estimate.leaderLapTime / 2 { playhead = 0 }
+            } else if shown.duration > 0 {
+                playhead += 0.1 * (shown.isPreview ? 1 : 8)
+                if playhead > shown.duration { playhead = 0 }
+            }
+        }
+        .onChange(of: liveStore.state.snapshot.drivers.first(where: { $0.position == 1 })?.lastLap) { _, _ in
+            if shown.isPreview { playhead = 0 }
         }
     }
 
@@ -170,8 +178,14 @@ struct TrackMapView: View {
     private var playbackControls: some View {
         Group {
             if let estimate = timingEstimate {
-                Label("Lap \(estimate.lap) · estimating \(estimate.progressByNumber.count) cars from live timing gaps", systemImage: "clock.arrow.circlepath")
-                    .font(.caption).foregroundStyle(.secondary)
+                HStack(spacing: 14) {
+                    Button { isPlaying.toggle() } label: {
+                        Label(isPlaying ? "Pause" : "Play", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                    }.buttonStyle(.bordered)
+                    Slider(value: $playhead, in: 0...estimate.leaderLapTime / 2) { Text("Simulated lap position") }
+                    Text("2× · \(Int(playhead)) / \(Int(estimate.leaderLapTime / 2)) s")
+                        .font(.caption.monospacedDigit()).frame(width: 100, alignment: .trailing)
+                }
             } else {
                 HStack(spacing: 14) {
                     Button { isPlaying.toggle() } label: {
