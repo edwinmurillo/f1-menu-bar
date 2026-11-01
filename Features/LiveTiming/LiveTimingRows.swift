@@ -66,9 +66,15 @@ struct LiveTimingRows: View {
                 Text("Driver").frame(width: driverWidth, alignment: .leading)
                 HStack(spacing: 4) {
                     Text("Pts*")
-                    Button("Simulate") { simulate?() }
-                        .buttonStyle(.borderless).font(.caption2).fixedSize()
+                    Button { simulate?() } label: {
+                        Text("Simulate").font(.caption2.weight(.medium))
+                            .foregroundStyle(.black)
+                            .padding(.horizontal, 5).padding(.vertical, 3)
+                            .background(.white, in: RoundedRectangle(cornerRadius: 4))
+                            .overlay(RoundedRectangle(cornerRadius: 4).strokeBorder(.black.opacity(0.15)))
+                    }.buttonStyle(.plain).fixedSize()
                         .disabled(simulate == nil)
+                        .opacity(simulate == nil ? 0.5 : 1)
                 }.frame(width: 82, alignment: .leading).padding(.horizontal, 6)
                     .help("Projected full-distance points. Simulate driver and team standings with this result.")
                 Text("Tyre history").frame(width: historyWidth, alignment: .leading)
